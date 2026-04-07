@@ -28,50 +28,32 @@
         </div>
         
         <div class="card">
-            <h2>🔐 Autenticación</h2>
+            <h2>Autenticación</h2>
             <div class="flex-row">
                 <input type="email" id="login-email" placeholder="Email" value="isaac@test.com">
                 <input type="password" id="login-password" placeholder="Contraseña" value="Cano2026-">
-                <button onclick="login()">🔑 Login (POST /api/auth/login)</button>
-                <button onclick="register()">📝 Registrar (POST /api/auth/register)</button>
-                <button onclick="logout()">🚪 Cerrar Sesión</button>
+                <button onclick="login()">Login (POST /api/auth/login)</button>
+                <button onclick="register()">Registrar (POST /api/auth/register)</button>
+                <button onclick="logout()">Cerrar Sesión</button>
             </div>
             <div id="auth-result" class="token-info"></div>
         </div>
 
         <div class="card">
-            <h2>📂 Categorías</h2>
+            <h2>Categorías</h2>
             <div class="flex-row">
-                <button onclick="getCategorias()">📋 GET /api/categories</button>
-                <button onclick="getCategoriasByType('INGRESO')">💰 Categorías Ingreso</button>
-                <button onclick="getCategoriasByType('GASTO')">💸 Categorías Gasto</button>
+                <button onclick="getCategorias()">GET /api/categories</button>
             </div>
             <pre id="categorias-result">Resultado aparecerá aquí...</pre>
         </div>
 
-        <div class="card">
-            <h2>💰 Presupuestos</h2>
-            <div class="flex-row">
-                <input type="number" id="budget-month" placeholder="Mes (1-12)" value="4">
-                <input type="number" id="budget-year" placeholder="Año" value="2026">
-                <button onclick="getBudgets()">📊 GET /api/budgets/{mes}/{año}</button>
-            </div>
-            <pre id="budgets-result">Resultado aparecerá aquí...</pre>
-        </div>
 
         <div class="card">
-            <h2>💸 Transacciones</h2>
+            <h2>Transacciones</h2>
             <div class="flex-row">
-                <button onclick="getTransactions()">📋 GET /api/transactions</button>
-                <button onclick="getTransactionsByPeriod()">📅 GET /api/transactions/period</button>
+                <button onclick="getTransactions()">GET /api/transactions</button>
             </div>
             <pre id="transactions-result">Resultado aparecerá aquí...</pre>
-        </div>
-
-        <div class="card">
-            <h2>📊 Reportes</h2>
-            <button onclick="getReports()">📈 GET /api/reports</button>
-            <pre id="reports-result">Resultado aparecerá aquí...</pre>
         </div>
     </div>
 
@@ -191,31 +173,6 @@
             }
         }
 
-        async function getCategoriasByType(type) {
-            const resultEl = document.getElementById('categorias-result');
-            resultEl.textContent = 'Cargando...';
-            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
-            try {
-                const { data } = await fetchApi(`/api/categories/type/${type}`);
-                resultEl.innerHTML = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
-        }
-
-        async function getBudgets() {
-            const month = document.getElementById('budget-month').value;
-            const year = document.getElementById('budget-year').value;
-            const resultEl = document.getElementById('budgets-result');
-            resultEl.textContent = 'Cargando...';
-            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
-            try {
-                const { data } = await fetchApi(`/api/budgets/${month}/${year}`);
-                resultEl.innerHTML = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
-        }
 
         async function getTransactions() {
             const resultEl = document.getElementById('transactions-result');
@@ -229,29 +186,6 @@
             }
         }
 
-        async function getTransactionsByPeriod() {
-            const resultEl = document.getElementById('transactions-result');
-            resultEl.textContent = 'Cargando...';
-            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
-            try {
-                const { data } = await fetchApi('/api/transactions/period');
-                resultEl.innerHTML = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
-        }
-
-        async function getReports() {
-            const resultEl = document.getElementById('reports-result');
-            resultEl.textContent = 'Cargando...';
-            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
-            try {
-                const { data } = await fetchApi('/api/reports');
-                resultEl.innerHTML = JSON.stringify(data, null, 2);
-            } catch (error) {
-                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
-        }
 
         if (authToken) {
             updateStatus('✅ Sesión restaurada');
