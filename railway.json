@@ -1,11 +1,10 @@
 {
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "cd api && mvn clean package -DskipTests"
+    "buildCommand": "apt-get update && apt-get install -y maven && cd api && mvn clean package -DskipTests"
   },
   "deploy": {
     "startCommand": "cd api && java -jar target/*.jar",
-    "restartPolicyType": "ON_FAILURE",
-    "healthcheckPath": "/"
+    "restartPolicyType": "ON_FAILURE"
   }
 }
