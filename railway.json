@@ -4,7 +4,7 @@
     "buildCommand": "apt-get update && apt-get install -y maven && cd api && mvn clean package -DskipTests"
   },
   "deploy": {
-    "startCommand": "cd api && java -jar target/*.jar",
+    "startCommand": "apt-get update && apt-get install -y openjdk-17-jre-headless && cd api && java -jar target/*.jar",
     "restartPolicyType": "ON_FAILURE"
   }
 }
