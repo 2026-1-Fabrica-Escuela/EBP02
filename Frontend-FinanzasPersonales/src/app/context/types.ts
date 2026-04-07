@@ -33,6 +33,15 @@ export interface AppState {
   register: (name: string, email: string, password: string) => Promise<AuthActionResult>;
   requestPasswordReset: (email: string) => Promise<ActionResult>;
   logout: () => Promise<void>;
-  addTransaction: (t: Omit<Transaction, "id" | "userId">) => Promise<ActionResult>;
-  refreshData: () => Promise<void>;
+addTransaction: (transactionData: CreateTransactionPayload) => Promise<ActionResult>;  refreshData: () => Promise<void>;
+}
+
+// En types.ts
+export interface CreateTransactionPayload {
+  categoryId: string;
+  amount: number;
+  date: string;
+  description: string;
+  status: "PENDING" | "COMPLETED" | "CANCELLED";
+  pocketId?: string | null;
 }

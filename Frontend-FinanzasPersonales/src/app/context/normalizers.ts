@@ -36,11 +36,10 @@ const normalizeRole = (value: string | null): User["role"] =>
   value?.toLowerCase() === "admin" ? "admin" : "user";
 
 const normalizeTransactionType = (value: string | null): Transaction["type"] | null => {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
   const normalized = value.toLowerCase();
+  // Añadimos "income" y "expense" que es lo que manda tu categoryType
   if (["ingreso", "income", "entrada"].includes(normalized)) {
     return "ingreso";
   }
@@ -80,23 +79,28 @@ const normalizeUser = (value: unknown): User | null => {
 };
 
 const normalizeTransaction = (value: unknown, fallbackUserId?: string): Transaction | null => {
-  if (!isRecord(value)) {
-    return null;
-  }
+  if (!isRecord(value)) return null;
 
-  const id = pickString(value, ["id", "_id", "transactionId"]);
+  const id = pickString(value, ["transactionId", "id", "_id"]);
+  
+  // Buscamos el tipo en la nueva llave 'categoryType'
   const type = normalizeTransactionType(
-    pickString(value, ["type", "transactionType", "movementType", "tipo"]),
+    pickString(value, ["categoryType", "type", "transactionType", "tipo"])
   );
+  
   const amount = pickNumber(value, ["amount", "value", "monto"]);
-  const date = pickString(value, ["date", "transactionDate", "createdAt", "fecha"]);
-  const description =
-    pickString(value, ["description", "concept", "detalle", "concepto"]) ?? "Sin descripción";
-  const category = pickString(value, ["category", "categoria"]) ?? "Sin categoría";
-  const userId =
-    pickString(value, ["userId", "user_id", "ownerId", "usuarioId"]) ?? fallbackUserId ?? "";
+  const date = pickString(value, ["date", "transactionDate", "fecha"]);
+  const description = pickString(value, ["description", "concept", "detalle"]) ?? "Sin descripción";
+  
+  // Buscamos el nombre de la categoría en 'categoryTitle'
+  const category = pickString(value, ["categoryTitle", "category", "categoria"]) ?? "Sin categoría";
+  
+  // Si el backend no manda userId, usamos el fallback o un string vacío
+  const userId = pickString(value, ["userId", "user_id"]) ?? fallbackUserId ?? "current-user";
 
-  if (!id || !type || amount === null || !date || !userId) {
+  // VALIDACIÓN: Si falta el ID, el Tipo o el Monto, el objeto no es válido
+  if (!id || !type || amount === null || !date) {
+    console.warn("Transacción descartada por falta de datos críticos:", { id, type, amount, date });
     return null;
   }
 

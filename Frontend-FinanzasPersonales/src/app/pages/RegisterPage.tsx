@@ -30,8 +30,9 @@ export function RegisterPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Formato de correo inválido";
     if (!form.password) e.password = "Campo obligatorio";
     else if (form.password.length < 8) e.password = "Mínimo 8 caracteres";
-    else if (!/(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])/.test(form.password))
-      e.password = "Debe incluir mayúscula, número y carácter especial";
+    // En RegisterPage.tsx, línea 31 aprox.
+    else if (!/(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/.test(form.password))
+    e.password = "Debe incluir mayúscula, número y carácter especial";
     if (!form.confirmPassword) e.confirmPassword = "Campo obligatorio";
     else if (form.password !== form.confirmPassword) e.confirmPassword = "Las contraseñas no coinciden";
     if (Object.keys(e).length > 0 && (!form.name || !form.email || !form.password || !form.confirmPassword)) {

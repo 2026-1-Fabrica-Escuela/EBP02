@@ -8,6 +8,7 @@ const COLORS = ["#1A237E", "#00E676", "#FFC107", "#FF5252", "#7C4DFF", "#00BCD4"
 
 export function DashboardHome() {
   const { user, transactions } = useApp();
+
   const userTx = transactions.filter((t) => t.userId === user?.id);
 
   const totalIncome = userTx.filter((t) => t.type === "ingreso").reduce((s, t) => s + t.amount, 0);

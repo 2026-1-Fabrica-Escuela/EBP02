@@ -35,6 +35,7 @@ import type {
   AuthActionResult,
   Transaction,
   User,
+  CreateTransactionPayload,
 } from "./types";
 
 export type {
@@ -195,39 +196,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     clearLocalSession();
   }, [clearLocalSession]);
 
-  const addTransaction = useCallback(async (
-    transactionData: Omit<Transaction, "id" | "userId">,
-  ): Promise<ActionResult> => {
-    if (!user) {
-      return {
-        success: false,
-        message: "Debes iniciar sesión para registrar transacciones",
-      };
+ // Cambia la definición de la función para usar el nuevo Payload
+const addTransaction = useCallback(async (
+  transactionData: CreateTransactionPayload, // <--- CAMBIO AQUÍ
+): Promise<ActionResult> => {
+  if (!user) {
+    return {
+      success: false,
+      message: "Debes iniciar sesión para registrar transacciones",
+    };
+  }
+
+  try {
+    const token = getStoredAuthToken();
+    // Ahora transactionData ya trae categoryId y status desde el formulario
+    const payload = await addTransactionRequest(transactionData, token);
+
+    const created = extractTransactionFromPayload(payload, user.id);
+    if (created) {
+      setTransactions((prev) => sortTransactions([created, ...prev]));
+    } else {
+      const transactionsPayload = await getTransactionsRequest(token);
+      setTransactions(normalizeTransactionsFromPayload(transactionsPayload, user.id));
     }
 
-    try {
-      const token = getStoredAuthToken();
-      const payload = await addTransactionRequest(transactionData, token);
-
-      const created = extractTransactionFromPayload(payload, user.id);
-      if (created) {
-        setTransactions((prev) => sortTransactions([created, ...prev]));
-      } else {
-        const transactionsPayload = await getTransactionsRequest(token);
-        setTransactions(normalizeTransactionsFromPayload(transactionsPayload, user.id));
-      }
-
-      return {
-        success: true,
-        message: extractMessage(payload, "Transacción registrada con éxito"),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: toErrorMessage(error, "No fue posible registrar la transacción"),
-      };
-    }
-  }, [user]);
+    return {
+      success: true,
+      message: extractMessage(payload, "Transacción registrada con éxito"),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: toErrorMessage(error, "No fue posible registrar la transacción"),
+    };
+  }
+}, [user]);
 
   const refreshData = useCallback(async () => {
     if (!user) {
@@ -239,38 +242,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const bootstrap = async () => {
-      try {
-        const payload = await getCurrentUserRequest(getStoredAuthToken());
-        const activeUser = extractUserFromPayload(payload);
+    // AppContext.tsx
 
-        if (!activeUser) {
-          throw new Error("No authenticated user");
-        }
+const bootstrap = async () => {
+  try {
+    // 1. Intentamos obtener el token PRIMERO
+    const token = getStoredAuthToken();
 
-        if (!active) {
-          return;
-        }
+    // 2. Si NO hay token, ni siquiera llamamos al servidor
+    if (!token) {
+      setIsInitializing(false);
+      return; // Salimos pacíficamente, el usuario verá el login
+    }
 
-        setUser(activeUser);
+    // 3. Solo si hay token, preguntamos al servidor quién es
+    const payload = await getCurrentUserRequest(token);
+    const activeUser = extractUserFromPayload(payload);
 
-        try {
-          await loadDataForUser(activeUser);
-        } catch {
-          setTransactions([]);
-          setUsers([activeUser]);
-        }
-      } catch {
-        if (!active) {
-          return;
-        }
-        clearLocalSession();
-      } finally {
-        if (active) {
-          setIsInitializing(false);
-        }
-      }
-    };
+    if (!activeUser) {
+      throw new Error("Token inválido o usuario no encontrado");
+    }
+
+    if (!active) return;
+
+    setUser(activeUser);
+    await loadDataForUser(activeUser);
+
+  } catch (error) {
+    // Si el token era viejo o hubo error, limpiamos sin ruido
+    console.warn("Sesión no válida o expirada.");
+    if (active) {
+      clearLocalSession();
+    }
+  } finally {
+    if (active) {
+      setIsInitializing(false);
+    }
+  }
+};
 
     bootstrap();
 

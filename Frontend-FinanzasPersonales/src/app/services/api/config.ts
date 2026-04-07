@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_API_BASE_URL = "http://localhost:8080/api";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 const ensureLeadingSlash = (value: string) => (value.startsWith("/") ? value : `/${value}`);
