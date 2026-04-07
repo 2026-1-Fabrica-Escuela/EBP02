@@ -5,100 +5,264 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finanzas API - Demo</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-        .container { max-width: 1200px; margin: auto; }
-        .card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
-        button { background: #0070f3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: auto; }
+        .card { background: white; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #0070f3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; font-size: 14px; }
         button:hover { background: #005bb5; }
-        pre { background: #f4f4f4; padding: 15px; overflow-x: auto; border-radius: 5px; }
+        pre { background: #f4f4f4; padding: 15px; overflow-x: auto; border-radius: 5px; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
         .error { color: red; }
         .success { color: green; }
+        .status-bar { background: #e8f4e8; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        h2 { color: #333; border-bottom: 2px solid #0070f3; padding-bottom: 10px; }
+        .flex-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .token-info { background: #f0f0f0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; word-break: break-all; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📊 API Finanzas Personales</h1>
-        <p>Demostración de consumo de API - <span id="api-status">Verificando conexión...</span></p>
+        <div class="status-bar" id="api-status">
+            🔄 Verificando conexión...
+        </div>
         
         <div class="card">
-            <h2>🔐 Probar Autenticación</h2>
-            <button onclick="testLogin()">Probar Login (POST /api/auth/login)</button>
-            <pre id="login-result">Resultado aparecerá aquí...</pre>
+            <h2>🔐 Autenticación</h2>
+            <div class="flex-row">
+                <input type="email" id="login-email" placeholder="Email" value="isaac@test.com">
+                <input type="password" id="login-password" placeholder="Contraseña" value="Cano2026-">
+                <button onclick="login()">🔑 Login (POST /api/auth/login)</button>
+                <button onclick="register()">📝 Registrar (POST /api/auth/register)</button>
+                <button onclick="logout()">🚪 Cerrar Sesión</button>
+            </div>
+            <div id="auth-result" class="token-info"></div>
         </div>
 
         <div class="card">
-            <h2>👥 Obtener Usuarios</h2>
-            <button onclick="getUsuarios()">GET /api/usuarios</button>
-            <pre id="usuarios-result">Resultado aparecerá aquí...</pre>
+            <h2>📂 Categorías</h2>
+            <div class="flex-row">
+                <button onclick="getCategorias()">📋 GET /api/categories</button>
+                <button onclick="getCategoriasByType('INGRESO')">💰 Categorías Ingreso</button>
+                <button onclick="getCategoriasByType('GASTO')">💸 Categorías Gasto</button>
+            </div>
+            <pre id="categorias-result">Resultado aparecerá aquí...</pre>
         </div>
 
         <div class="card">
-            <h2>📡 Estado del Servidor</h2>
-            <button onclick="checkHealth()">Verificar Health</button>
-            <pre id="health-result">Resultado aparecerá aquí...</pre>
+            <h2>💰 Presupuestos</h2>
+            <div class="flex-row">
+                <input type="number" id="budget-month" placeholder="Mes (1-12)" value="4">
+                <input type="number" id="budget-year" placeholder="Año" value="2026">
+                <button onclick="getBudgets()">📊 GET /api/budgets/{mes}/{año}</button>
+            </div>
+            <pre id="budgets-result">Resultado aparecerá aquí...</pre>
+        </div>
+
+        <div class="card">
+            <h2>💸 Transacciones</h2>
+            <div class="flex-row">
+                <button onclick="getTransactions()">📋 GET /api/transactions</button>
+                <button onclick="getTransactionsByPeriod()">📅 GET /api/transactions/period</button>
+            </div>
+            <pre id="transactions-result">Resultado aparecerá aquí...</pre>
+        </div>
+
+        <div class="card">
+            <h2>📊 Reportes</h2>
+            <button onclick="getReports()">📈 GET /api/reports</button>
+            <pre id="reports-result">Resultado aparecerá aquí...</pre>
         </div>
     </div>
 
     <script>
         const API_BASE_URL = 'https://ebp02-production.up.railway.app';
-        
-        async function testLogin() {
-            const resultElement = document.getElementById('login-result');
-            resultElement.textContent = 'Cargando...';
+        let authToken = localStorage.getItem('token');
+        let userData = null;
+
+        function updateStatus(message, isError = false) {
+            const statusEl = document.getElementById('api-status');
+            if (authToken) {
+                statusEl.innerHTML = `✅ Conectado como: ${userData?.email || 'Usuario'} | Token activo | <button onclick="logout()" style="background:#666;padding:5px 10px;">Cerrar Sesión</button>`;
+            } else {
+                statusEl.innerHTML = `⚠️ No autenticado - Inicia sesión para consumir las APIs`;
+            }
+            if (message) {
+                const msgDiv = document.createElement('div');
+                msgDiv.style.marginTop = '10px';
+                msgDiv.style.color = isError ? 'red' : 'green';
+                msgDiv.innerHTML = message;
+                statusEl.appendChild(msgDiv);
+                setTimeout(() => msgDiv.remove(), 3000);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultEl = document.getElementById('auth-result');
+            resultEl.textContent = 'Cargando...';
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: 'isaac@test.com', 
-                        password: 'Cano2026-'      
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+                
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    userData = data;
+                    localStorage.setItem('token', data.token);
+                    updateStatus(`✅ Login exitoso. Bienvenido ${data.nombre || email}`);
+                } else {
+                    updateStatus(`❌ Error en login: ${data.message || 'Credenciales incorrectas'}`, true);
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                updateStatus('❌ Error de conexión con el servidor', true);
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const resultEl = document.getElementById('auth-result');
+            resultEl.textContent = 'Cargando...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email, 
+                        password, 
+                        nombre: email.split('@')[0] 
                     })
                 });
                 
                 const data = await response.json();
-                resultElement.innerHTML = JSON.stringify(data, null, 2);
-                
-                if (response.ok && data.token) {
-                    localStorage.setItem('token', data.token);
-                    document.getElementById('api-status').innerHTML = '✅ Conectado - Token guardado';
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+                if (response.ok) {
+                    updateStatus('✅ Usuario registrado correctamente. Ahora puedes iniciar sesión.');
+                } else {
+                    updateStatus(`❌ Error en registro: ${data.message}`, true);
                 }
             } catch (error) {
-                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                updateStatus('❌ Error de conexión', true);
             }
         }
-        
-        async function getUsuarios() {
-            const resultElement = document.getElementById('usuarios-result');
-            resultElement.textContent = 'Cargando...';
+
+        function logout() {
+            authToken = null;
+            userData = null;
+            localStorage.removeItem('token');
+            updateStatus('👋 Sesión cerrada');
+            document.getElementById('auth-result').innerHTML = '';
+        }
+
+        async function fetchApi(endpoint, options = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
             
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+            let data;
             try {
-                const token = localStorage.getItem('token');
-                const headers = {};
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-                
-                const response = await fetch(`${API_BASE_URL}/api/usuarios`, { headers });
-                const data = await response.json();
-                resultElement.innerHTML = JSON.stringify(data, null, 2);
+                data = await response.json();
+            } catch (e) {
+                data = { error: 'No se pudo parsear la respuesta' };
+            }
+            return { response, data };
+        }
+
+        async function getCategorias() {
+            const resultEl = document.getElementById('categorias-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
+            try {
+                const { data } = await fetchApi('/api/categories');
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
             } catch (error) {
-                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
             }
         }
-        
-        async function checkHealth() {
-            const resultElement = document.getElementById('health-result');
-            resultElement.textContent = 'Cargando...';
-            
+
+        async function getCategoriasByType(type) {
+            const resultEl = document.getElementById('categorias-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
             try {
-                const response = await fetch(`${API_BASE_URL}/actuator/health`);
-                const data = await response.json();
-                resultElement.innerHTML = JSON.stringify(data, null, 2);
+                const { data } = await fetchApi(`/api/categories/type/${type}`);
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
             } catch (error) {
-                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
             }
         }
-        
-        checkHealth();
+
+        async function getBudgets() {
+            const month = document.getElementById('budget-month').value;
+            const year = document.getElementById('budget-year').value;
+            const resultEl = document.getElementById('budgets-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
+            try {
+                const { data } = await fetchApi(`/api/budgets/${month}/${year}`);
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function getTransactions() {
+            const resultEl = document.getElementById('transactions-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
+            try {
+                const { data } = await fetchApi('/api/transactions');
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function getTransactionsByPeriod() {
+            const resultEl = document.getElementById('transactions-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
+            try {
+                const { data } = await fetchApi('/api/transactions/period');
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+
+        async function getReports() {
+            const resultEl = document.getElementById('reports-result');
+            resultEl.textContent = 'Cargando...';
+            if (!authToken) { resultEl.innerHTML = '<span class="error">❌ Debes iniciar sesión primero</span>'; return; }
+            try {
+                const { data } = await fetchApi('/api/reports');
+                resultEl.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+
+        if (authToken) {
+            updateStatus('✅ Sesión restaurada');
+            try {
+                const payload = JSON.parse(atob(authToken.split('.')[1]));
+                userData = { email: payload.sub };
+                updateStatus(`✅ Sesión restaurada para: ${userData.email}`);
+            } catch(e) {}
+        } else {
+            updateStatus('⚠️ Inicia sesión para consumir las APIs');
+        }
     </script>
 </body>
 </html>
