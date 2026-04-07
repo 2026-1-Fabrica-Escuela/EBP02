@@ -1,8 +1,9 @@
 {
   "build": {
-    "builder": "NIXPACKS",
+    "builder": "RAILPACK",
+    "buildCommand": "cd api && mvn clean compile",
     "environment": {
-      "NIXPACKS_XDG_OPEN": "api"
+      "JAVA_VERSION": "17"
     }
   },
   "deploy": {
