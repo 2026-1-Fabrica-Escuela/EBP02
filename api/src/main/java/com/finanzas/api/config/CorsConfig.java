@@ -12,7 +12,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
+    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,https://ebp-02-git-main-valentina-bernals-projects.vercel.app,https://ebp-02.vercel.app}")
     private String allowedOrigins;
 
     @Bean
@@ -24,7 +24,7 @@ public class CorsConfig {
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/**", config);  // Cambié /api/** por /** para cubrir todas las rutas
         return new CorsFilter(source);
     }
 }
