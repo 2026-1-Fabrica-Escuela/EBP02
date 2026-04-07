@@ -1,0 +1,18 @@
+# Variables sensibles
+.env
+
+# IntelliJ e IDEs
+.idea/
+*.iml
+.vscode/
+
+# Maven y compilados
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+
+# Logs y temporales
+*.log
+.DS_Store
+HELP.md
