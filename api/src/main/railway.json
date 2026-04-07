@@ -1,12 +1,12 @@
 {
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd api && mvn clean compile",
-    "baseDirectory": "api"
+    "environment": {
+      "NIXPACKS_XDG_OPEN": "api"
+    }
   },
   "deploy": {
     "startCommand": "cd api && mvn spring-boot:run",
-    "restartPolicyType": "ON_FAILURE",
-    "healthcheckPath": "/"
+    "restartPolicyType": "ON_FAILURE"
   }
 }
