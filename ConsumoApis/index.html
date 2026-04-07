@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanzas API - Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .container { max-width: 1200px; margin: auto; }
+        .card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        button { background: #0070f3; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #005bb5; }
+        pre { background: #f4f4f4; padding: 15px; overflow-x: auto; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 API Finanzas Personales</h1>
+        <p>Demostración de consumo de API - <span id="api-status">Verificando conexión...</span></p>
+        
+        <div class="card">
+            <h2>🔐 Probar Autenticación</h2>
+            <button onclick="testLogin()">Probar Login (POST /api/auth/login)</button>
+            <pre id="login-result">Resultado aparecerá aquí...</pre>
+        </div>
+
+        <div class="card">
+            <h2>👥 Obtener Usuarios</h2>
+            <button onclick="getUsuarios()">GET /api/usuarios</button>
+            <pre id="usuarios-result">Resultado aparecerá aquí...</pre>
+        </div>
+
+        <div class="card">
+            <h2>📡 Estado del Servidor</h2>
+            <button onclick="checkHealth()">Verificar Health</button>
+            <pre id="health-result">Resultado aparecerá aquí...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://ebp02-production.up.railway.app';
+        
+        async function testLogin() {
+            const resultElement = document.getElementById('login-result');
+            resultElement.textContent = 'Cargando...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'isaac@test.com', 
+                        password: 'Cano2026-'      
+                    })
+                });
+                
+                const data = await response.json();
+                resultElement.innerHTML = JSON.stringify(data, null, 2);
+                
+                if (response.ok && data.token) {
+                    localStorage.setItem('token', data.token);
+                    document.getElementById('api-status').innerHTML = '✅ Conectado - Token guardado';
+                }
+            } catch (error) {
+                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function getUsuarios() {
+            const resultElement = document.getElementById('usuarios-result');
+            resultElement.textContent = 'Cargando...';
+            
+            try {
+                const token = localStorage.getItem('token');
+                const headers = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                
+                const response = await fetch(`${API_BASE_URL}/api/usuarios`, { headers });
+                const data = await response.json();
+                resultElement.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function checkHealth() {
+            const resultElement = document.getElementById('health-result');
+            resultElement.textContent = 'Cargando...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/actuator/health`);
+                const data = await response.json();
+                resultElement.innerHTML = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        checkHealth();
+    </script>
+</body>
+</html>
