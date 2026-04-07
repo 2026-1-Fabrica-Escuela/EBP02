@@ -33,6 +33,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers("/", "/login", "/register", "/api/usuarios", "/api/usuarios/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session ->
