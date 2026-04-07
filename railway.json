@@ -1,13 +1,11 @@
 {
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "cd api && mvn clean compile",
-    "environment": {
-      "JAVA_VERSION": "17"
-    }
+    "buildCommand": "cd api && mvn clean package -DskipTests"
   },
   "deploy": {
-    "startCommand": "cd api && mvn spring-boot:run",
-    "restartPolicyType": "ON_FAILURE"
+    "startCommand": "cd api && java -jar target/*.jar",
+    "restartPolicyType": "ON_FAILURE",
+    "healthcheckPath": "/"
   }
 }
