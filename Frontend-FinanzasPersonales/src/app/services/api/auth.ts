@@ -3,6 +3,7 @@ import { request } from "./http";
 import {
   mockForgotPasswordRequest,
   mockGetCurrentUserRequest,
+  mockGetLoginLogsRequest,
   mockLoginRequest,
   mockLogoutRequest,
   mockRegisterRequest,
@@ -55,4 +56,12 @@ export const getCurrentUserRequest = (token?: string | null) => {
   }
 
   return request<unknown>(ENDPOINTS.me, { method: "GET" }, token);
+};
+
+export const getLoginLogsRequest = (token?: string | null) => {
+  if (USE_MOCK_API) {
+    return mockGetLoginLogsRequest(token);
+  }
+
+  return request<unknown>(ENDPOINTS.loginLogs, { method: "GET" }, token);
 };

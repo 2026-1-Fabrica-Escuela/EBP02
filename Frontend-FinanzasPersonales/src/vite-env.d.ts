@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_API_ME_ENDPOINT?: string;
   readonly VITE_API_LOGOUT_ENDPOINT?: string;
   readonly VITE_API_FORGOT_PASSWORD_ENDPOINT?: string;
+  readonly VITE_API_LOGIN_LOGS_ENDPOINT?: string;
   readonly VITE_API_TRANSACTIONS_ENDPOINT?: string;
   readonly VITE_API_USERS_ENDPOINT?: string;
 }

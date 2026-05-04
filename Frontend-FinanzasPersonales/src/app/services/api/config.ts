@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
@@ -27,8 +29,12 @@ export const ENDPOINTS = {
   me: ensureLeadingSlash(import.meta.env.VITE_API_ME_ENDPOINT ?? "/auth/me"),
   logout: ensureLeadingSlash(import.meta.env.VITE_API_LOGOUT_ENDPOINT ?? "/auth/logout"),
   forgotPassword: ensureLeadingSlash(import.meta.env.VITE_API_FORGOT_PASSWORD_ENDPOINT ?? "/auth/forgot-password"),
+  loginLogs: ensureLeadingSlash(import.meta.env.VITE_API_LOGIN_LOGS_ENDPOINT ?? "/admin/login-logs"),
   transactions: ensureLeadingSlash(import.meta.env.VITE_API_TRANSACTIONS_ENDPOINT ?? "/transactions"),
   users: ensureLeadingSlash(import.meta.env.VITE_API_USERS_ENDPOINT ?? "/users"),
+  categories: ensureLeadingSlash(import.meta.env.VITE_API_CATEGORIES_ENDPOINT ?? "/categories"),
+  budgets: ensureLeadingSlash(import.meta.env.VITE_API_BUDGETS_ENDPOINT ?? "/budgets"),
+  pockets: ensureLeadingSlash(import.meta.env.VITE_API_POCKETS_ENDPOINT ?? "/pockets"),
 } as const;
 
 export const USE_MOCK_API = parseBooleanEnv(import.meta.env.VITE_API_USE_MOCK, import.meta.env.DEV);

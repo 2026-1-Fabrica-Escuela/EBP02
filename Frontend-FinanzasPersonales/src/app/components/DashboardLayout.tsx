@@ -1,16 +1,33 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router";
-import { LayoutDashboard, PlusCircle, MinusCircle, LogOut, Menu, X, Shield } from "lucide-react";
+import {
+  BarChart2,
+  History,
+  LayoutDashboard,
+  Lightbulb,
+  Users,
+  PlusCircle,
+  MinusCircle,
+  LogOut,
+  Menu,
+  X,
+  Wallet,
+} from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard/budgets", label: "Presupuestos", icon: Wallet },
+  { to: "/dashboard/reports", label: "Reportes", icon: BarChart2 },
+  { to: "/dashboard/recommendations", label: "Recomendaciones", icon: Lightbulb },
+  { to: "/dashboard/history", label: "Historial", icon: History },
   { to: "/dashboard/income", label: "Registrar Ingreso", icon: PlusCircle },
   { to: "/dashboard/expense", label: "Registrar Gasto", icon: MinusCircle },
 ];
 
 const ADMIN_NAV_ITEMS = [
-  { to: "/dashboard/admin", label: "Admin Panel", icon: Shield },
+  { to: "/dashboard/admin", label: "Panel de Usuarios", icon: Users },
+  { to: "/dashboard/admin/activity", label: "Reporte de Actividad", icon: BarChart2 },
 ];
 
 export function DashboardLayout() {
@@ -54,7 +71,9 @@ export function DashboardLayout() {
       </div>
       <nav className="flex-1 p-4 flex flex-col gap-1">
         {navItems.map((item) => {
-          const active = location.pathname === item.to;
+          const active = item.to === "/dashboard/admin"
+            ? location.pathname === item.to || location.pathname.startsWith("/dashboard/admin/edit/")
+            : location.pathname === item.to;
           return (
             <Link
               key={item.to}

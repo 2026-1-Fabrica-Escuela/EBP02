@@ -1,4 +1,10 @@
-import type { Transaction, User } from "./types";
+import type {
+  BudgetResponse,
+  LoginLog,
+  PocketResponse,
+  Transaction,
+  User,
+} from "./types";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -32,8 +38,44 @@ const pickNumber = (source: Record<string, unknown>, keys: string[]): number | n
   return null;
 };
 
+const pickBoolean = (source: Record<string, unknown>, keys: string[]): boolean | null => {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value !== 0;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const normalized = value.trim().toLowerCase();
+      if (["true", "1", "yes", "si", "sí"].includes(normalized)) {
+        return true;
+      }
+      if (["false", "0", "no"].includes(normalized)) {
+        return false;
+      }
+    }
+  }
+
+  return null;
+};
+
 const normalizeRole = (value: string | null): User["role"] =>
   value?.toLowerCase() === "admin" ? "admin" : "user";
+
+const normalizeUserStatus = (value: string | null): User["status"] => {
+  if (!value) {
+    return "activa";
+  }
+
+  const normalized = value.toLowerCase();
+  if (["suspendida", "suspended", "inactive", "inactiva", "disabled", "blocked"].includes(normalized)) {
+    return "suspendida";
+  }
+
+  return "activa";
+};
 
 const normalizeTransactionType = (value: string | null): Transaction["type"] | null => {
   if (!value) {
@@ -58,6 +100,63 @@ const normalizeDate = (value: string): string => {
   return value;
 };
 
+const normalizeBudget = (value: unknown): BudgetResponse | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const budgetId = pickString(value, ["budgetId", "id", "_id"]);
+  const totalAmount = pickNumber(value, ["totalAmount", "total_amount", "amount"]);
+  const allocatedAmount = pickNumber(value, ["allocatedAmount", "allocated_amount"]) ?? 0;
+  const remainingAmount = pickNumber(value, ["remainingAmount", "remaining_amount"]);
+  const month = pickNumber(value, ["month"]);
+  const year = pickNumber(value, ["year"]);
+
+  if (!budgetId || totalAmount === null || month === null || year === null) {
+    return null;
+  }
+
+  const resolvedAllocated = allocatedAmount ?? 0;
+  const resolvedRemaining = remainingAmount ?? totalAmount - resolvedAllocated;
+
+  return {
+    budgetId,
+    totalAmount,
+    allocatedAmount: resolvedAllocated,
+    remainingAmount: resolvedRemaining,
+    month: Math.trunc(month),
+    year: Math.trunc(year),
+  };
+};
+
+const normalizePocket = (value: unknown): PocketResponse | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const pocketId = pickString(value, ["pocketId", "id", "_id"]);
+  const title = pickString(value, ["title", "name", "nombre"]);
+  const allocatedAmount = pickNumber(value, ["allocatedAmount", "allocated_amount"]);
+  const currentAmount = pickNumber(value, ["currentAmount", "current_amount"]);
+  const isSavings = pickBoolean(value, ["isSavings", "is_savings", "savings"]);
+  const categoryTitle = pickString(value, ["categoryTitle", "category_title", "categoryName"]);
+  const budgetId = pickString(value, ["budgetId", "budget_id"]);
+
+  if (!pocketId || !title || allocatedAmount === null || isSavings === null || !budgetId) {
+    return null;
+  }
+
+  return {
+    pocketId,
+    title,
+    allocatedAmount,
+    currentAmount: currentAmount ?? allocatedAmount,
+    isSavings,
+    categoryTitle,
+    budgetId,
+  };
+};
+
 const normalizeUser = (value: unknown): User | null => {
   if (!isRecord(value)) {
     return null;
@@ -76,6 +175,8 @@ const normalizeUser = (value: unknown): User | null => {
     name,
     email,
     role: normalizeRole(pickString(value, ["role", "rol"])),
+    status: normalizeUserStatus(pickString(value, ["status", "state", "estado", "accountStatus"])),
+    suspendReason: pickString(value, ["suspendReason", "suspensionReason", "motivoSuspension"]),
   };
 };
 
@@ -148,6 +249,33 @@ const extractArrayFromPayload = (payload: unknown, preferredKeys: string[]): unk
   return [];
 };
 
+const extractObjectFromPayload = (payload: unknown, preferredKeys: string[]): unknown => {
+  if (isRecord(payload)) {
+    for (const key of preferredKeys) {
+      const value = payload[key];
+      if (isRecord(value)) {
+        return value;
+      }
+    }
+
+    for (const parentKey of ["data", "result", "payload"]) {
+      const nested = payload[parentKey];
+      if (!isRecord(nested)) {
+        continue;
+      }
+
+      for (const key of preferredKeys) {
+        const value = nested[key];
+        if (isRecord(value)) {
+          return value;
+        }
+      }
+    }
+  }
+
+  return payload;
+};
+
 export const extractUserFromPayload = (payload: unknown): User | null => {
   const direct = normalizeUser(payload);
   if (direct) {
@@ -210,7 +338,11 @@ export const normalizeUsersFromPayload = (payload: unknown, currentUser: User): 
     .filter((entry): entry is User => Boolean(entry));
 
   if (!list.some((entry) => entry.id === currentUser.id)) {
-    list.unshift(currentUser);
+    list.unshift({
+      ...currentUser,
+      status: currentUser.status ?? "activa",
+      suspendReason: currentUser.suspendReason ?? null,
+    });
   }
 
   return list;
@@ -232,6 +364,135 @@ export const normalizeTransactionsFromPayload = (
       .map((entry) => normalizeTransaction(entry, fallbackUserId))
       .filter((entry): entry is Transaction => Boolean(entry)),
   );
+
+const normalizeLoginLog = (value: unknown): LoginLog | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const loginLogId = pickString(value, ["loginLogId", "id", "_id"]);
+  const userId = pickString(value, ["userId", "user_id", "uid"]);
+  const userName = pickString(value, ["userName", "name", "fullName", "nombre"]);
+  const userEmail = pickString(value, ["userEmail", "email", "correo"]);
+  const timestamp = pickString(value, ["timestamp", "loginAt", "createdAt", "date", "fecha"]);
+
+  if (!loginLogId || !userId || !userName || !userEmail || !timestamp) {
+    return null;
+  }
+
+  return {
+    loginLogId,
+    userId,
+    userName,
+    userEmail,
+    timestamp,
+  };
+};
+
+export const sortLoginLogs = (items: LoginLog[]): LoginLog[] =>
+  [...items].sort((left, right) => {
+    const leftTime = new Date(left.timestamp).getTime();
+    const rightTime = new Date(right.timestamp).getTime();
+    return rightTime - leftTime;
+  });
+
+export const normalizeLoginLogsFromPayload = (payload: unknown): LoginLog[] =>
+  sortLoginLogs(
+    extractArrayFromPayload(payload, ["loginLogs", "items", "results", "data"])
+      .map((entry) => normalizeLoginLog(entry))
+      .filter((entry): entry is LoginLog => Boolean(entry)),
+  );
+
+  export const sortBudgets = (items: BudgetResponse[]): BudgetResponse[] =>
+    [...items].sort((a, b) => {
+      if (a.year !== b.year) {
+        return b.year - a.year;
+      }
+      if (a.month !== b.month) {
+        return b.month - a.month;
+      }
+      return a.budgetId.localeCompare(b.budgetId);
+    });
+
+  export const sortPockets = (items: PocketResponse[]): PocketResponse[] =>
+    [...items].sort((a, b) => {
+      if (a.isSavings !== b.isSavings) {
+        return Number(b.isSavings) - Number(a.isSavings);
+      }
+
+      const aLabel = (a.categoryTitle ?? a.title).toLowerCase();
+      const bLabel = (b.categoryTitle ?? b.title).toLowerCase();
+
+      return aLabel.localeCompare(bLabel, "es");
+    });
+
+  export const normalizeBudgetsFromPayload = (payload: unknown): BudgetResponse[] =>
+    sortBudgets(
+      extractArrayFromPayload(payload, ["budgets", "items", "results", "data"])
+        .map((entry) => normalizeBudget(entry))
+        .filter((entry): entry is BudgetResponse => Boolean(entry)),
+    );
+
+  export const normalizePocketsFromPayload = (payload: unknown): PocketResponse[] =>
+    sortPockets(
+      extractArrayFromPayload(payload, ["pockets", "items", "results", "data"])
+        .map((entry) => normalizePocket(entry))
+        .filter((entry): entry is PocketResponse => Boolean(entry)),
+    );
+
+  export const extractBudgetFromPayload = (payload: unknown): BudgetResponse | null => {
+    const direct = normalizeBudget(payload);
+    if (direct) {
+      return direct;
+    }
+
+    const candidate = extractObjectFromPayload(payload, ["budget", "data", "result", "payload"]);
+    const normalized = normalizeBudget(candidate);
+    if (normalized) {
+      return normalized;
+    }
+
+    if (!isRecord(payload)) {
+      return null;
+    }
+
+    for (const key of ["budget", "data", "result", "payload"]) {
+      const nested = payload[key];
+      const nestedBudget = normalizeBudget(isRecord(nested) ? nested.budget : nested);
+      if (nestedBudget) {
+        return nestedBudget;
+      }
+    }
+
+    return null;
+  };
+
+  export const extractPocketFromPayload = (payload: unknown): PocketResponse | null => {
+    const direct = normalizePocket(payload);
+    if (direct) {
+      return direct;
+    }
+
+    const candidate = extractObjectFromPayload(payload, ["pocket", "data", "result", "payload"]);
+    const normalized = normalizePocket(candidate);
+    if (normalized) {
+      return normalized;
+    }
+
+    if (!isRecord(payload)) {
+      return null;
+    }
+
+    for (const key of ["pocket", "data", "result", "payload"]) {
+      const nested = payload[key];
+      const nestedPocket = normalizePocket(isRecord(nested) ? nested.pocket : nested);
+      if (nestedPocket) {
+        return nestedPocket;
+      }
+    }
+
+    return null;
+  };
 
 export const extractTransactionFromPayload = (
   payload: unknown,
