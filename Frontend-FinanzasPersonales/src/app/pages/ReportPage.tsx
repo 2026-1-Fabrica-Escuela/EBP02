@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { AlertTriangle, BarChart2, Search } from "lucide-react";
+import { AlertTriangle, BarChart2, Loader2, Search } from "lucide-react";
 import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentInput } from "../components/ui/FluentInput";
-import { useApp, type Transaction } from "../context/AppContext";
+import { useApp } from "../context/AppContext";
+import { getReportRequest, getStoredAuthToken } from "../services/api";
+import type { ReportApiResponse } from "../services/api";
 
 type FilterError = "required" | "invalid" | null;
 
@@ -36,22 +38,6 @@ const daysBetweenInclusive = (from: string, to: string): number => {
   return Math.floor((getUtcDate(to) - getUtcDate(from)) / msPerDay) + 1;
 };
 
-const groupExpensesByCategory = (transactions: Transaction[]): CategoryRow[] => {
-  const categoryMap = new Map<string, { count: number; total: number }>();
-
-  for (const transaction of transactions) {
-    const current = categoryMap.get(transaction.category) ?? { count: 0, total: 0 };
-    categoryMap.set(transaction.category, {
-      count: current.count + 1,
-      total: current.total + transaction.amount,
-    });
-  }
-
-  return Array.from(categoryMap.entries())
-    .map(([category, value]) => ({ category, ...value }))
-    .sort((left, right) => left.total - right.total || left.category.localeCompare(right.category, "es"));
-};
-
 function EmptyState({
   title,
   description,
@@ -77,13 +63,15 @@ function EmptyState({
 }
 
 export function ReportPage() {
-  const { user, transactions } = useApp();
+  const { user } = useApp();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [filterError, setFilterError] = useState<FilterError>(null);
   const [result, setResult] = useState<ReportResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!from || !to) {
       setFilterError("required");
       setResult(null);
@@ -96,30 +84,53 @@ export function ReportPage() {
       return;
     }
 
-    const activeUserId = user?.id;
-    if (!activeUserId) {
+    if (!user?.id) {
       setResult(null);
       return;
     }
 
-    const expenses = transactions.filter(
-      (transaction) =>
-        transaction.userId === activeUserId &&
-        transaction.type === "gasto" &&
-        transaction.date >= from &&
-        transaction.date <= to,
-    );
-
-    const rows = groupExpensesByCategory(expenses);
-    const grandTotal = rows.reduce((sum, row) => sum + row.total, 0);
-    const totalDays = daysBetweenInclusive(from, to);
-
     setFilterError(null);
-    setResult({
-      rows,
-      grandTotal,
-      dailyAvg: totalDays > 0 ? grandTotal / totalDays : 0,
-    });
+    setApiError(null);
+    setLoading(true);
+
+    try {
+      const token = getStoredAuthToken();
+      const report: ReportApiResponse = await getReportRequest(from, to, token);
+
+      // Build category rows from the backend's expenseByCategory map
+      const expenseMap = report.expenseByCategory ?? {};
+
+      // Count transactions per expense category from the transactions list
+      const countMap = new Map<string, number>();
+      for (const tx of report.transactions ?? []) {
+        if (tx.categoryType === "EXPENSE") {
+          const cat = tx.categoryTitle ?? "Sin categoría";
+          countMap.set(cat, (countMap.get(cat) ?? 0) + 1);
+        }
+      }
+
+      const rows: CategoryRow[] = Object.entries(expenseMap)
+        .map(([category, total]) => ({
+          category,
+          count: countMap.get(category) ?? 0,
+          total: typeof total === "number" ? total : Number(total) || 0,
+        }))
+        .sort((left, right) => left.total - right.total || left.category.localeCompare(right.category, "es"));
+
+      const grandTotal = rows.reduce((sum, row) => sum + row.total, 0);
+      const totalDays = daysBetweenInclusive(from, to);
+
+      setResult({
+        rows,
+        grandTotal,
+        dailyAvg: totalDays > 0 ? grandTotal / totalDays : 0,
+      });
+    } catch (error: any) {
+      setApiError(error?.message ?? "Error al generar el reporte");
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -163,9 +174,9 @@ export function ReportPage() {
             />
           </div>
 
-          <FluentButton className="w-full sm:w-auto" onClick={handleGenerate}>
-            <Search size={18} />
-            Generar Reporte
+          <FluentButton className="w-full sm:w-auto" onClick={handleGenerate} disabled={loading}>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+            {loading ? "Generando..." : "Generar Reporte"}
           </FluentButton>
         </div>
 
@@ -184,6 +195,13 @@ export function ReportPage() {
             <p className="text-[0.8125rem] text-[#FF5252]">
               La fecha final debe ser igual o posterior a la fecha inicial
             </p>
+          </div>
+        )}
+
+        {apiError && (
+          <div className="mt-4 flex items-center gap-3 rounded-[10px] border border-[#FF5252]/30 bg-[#FF5252]/5 p-3">
+            <AlertTriangle size={18} className="shrink-0 text-[#FF5252]" />
+            <p className="text-[0.8125rem] text-[#FF5252]">{apiError}</p>
           </div>
         )}
       </FluentCard>
@@ -262,7 +280,7 @@ export function ReportPage() {
         </>
       )}
 
-      {!result && !filterError && (
+      {!result && !filterError && !apiError && (
         <EmptyState
           title="Genera tu primer reporte"
           description={'Ingresa una fecha de inicio y una fecha fin, luego haz clic en "Generar Reporte" para analizar tus gastos'}

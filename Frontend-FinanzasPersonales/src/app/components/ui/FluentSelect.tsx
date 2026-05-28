@@ -30,6 +30,7 @@ export function FluentSelect({
       <div className="relative">
         <select
           id={inputId}
+          data-testid="fluent-select"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full appearance-none rounded-[10px] border px-4 py-2.5 bg-white transition-all duration-200 outline-none cursor-pointer

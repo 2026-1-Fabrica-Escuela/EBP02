@@ -16,6 +16,8 @@ public class AuthController {
 
     private final AuthService authService;
 
+   
+
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
@@ -24,6 +26,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser(java.security.Principal principal) {
+        return ResponseEntity.ok(authService.getCurrentUser(principal.getName()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().build();
     }
 }
 

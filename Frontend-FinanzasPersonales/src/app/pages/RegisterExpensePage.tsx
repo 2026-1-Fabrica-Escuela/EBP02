@@ -7,20 +7,15 @@ import { FluentCard } from "../components/ui/FluentCard";
 import { useApp } from "../context/AppContext";
 import { toast } from "sonner";
 
-const EXPENSE_CATEGORIES = [
-  { value: "Alimentación", label: "Alimentación" },
-  { value: "Transporte", label: "Transporte" },
-  { value: "Vivienda", label: "Vivienda" },
-  { value: "Servicios", label: "Servicios" },
-  { value: "Salud", label: "Salud" },
-  { value: "Entretenimiento", label: "Entretenimiento" },
-  { value: "Educación", label: "Educación" },
-  { value: "Ropa", label: "Ropa" },
-  { value: "Otros gastos", label: "Otros gastos" },
-];
 
 export function RegisterExpensePage() {
-  const { addTransaction } = useApp();
+  const { categories, addTransaction } = useApp();
+
+  const expenseCategories = React.useMemo(() => {
+    return categories
+      .filter((cat) => cat.type === "EXPENSE")
+      .map((cat) => ({ value: cat.categoryId, label: cat.title }));
+  }, [categories]);
   const [form, setForm] = useState({ amount: "", date: "", description: "", category: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,12 +42,14 @@ export function RegisterExpensePage() {
 
     setIsSubmitting(true);
     try {
+      const selectedCat = expenseCategories.find(c => c.value === form.category);
       const result = await addTransaction({
         type: "gasto",
         amount: parseFloat(form.amount),
         date: form.date,
         description: form.description,
-        category: form.category,
+        category: selectedCat?.label ?? form.category,
+        categoryId: form.category,
       });
 
       if (result.success) {
@@ -75,7 +72,7 @@ export function RegisterExpensePage() {
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
           <FluentInput label="Monto *" type="text" placeholder="Ej: 50000" value={form.amount} onChange={set("amount")} error={errors.amount} />
           <FluentInput label="Fecha *" type="date" value={form.date} onChange={set("date")} error={errors.date} />
-          <FluentSelect label="Categoría *" value={form.category} onChange={(v) => setForm((p) => ({ ...p, category: v }))} options={EXPENSE_CATEGORIES} error={errors.category} />
+          <FluentSelect label="Categoría *" value={form.category} onChange={(v) => setForm((p) => ({ ...p, category: v }))} options={expenseCategories} error={errors.category} />
           <FluentInput label="Descripción *" placeholder="Ej: Compra en supermercado" value={form.description} onChange={set("description")} error={errors.description} />
           <FluentButton type="submit" fullWidth variant="danger" disabled={isSubmitting}>
             <MinusCircle size={18} /> {isSubmitting ? "Guardando..." : "Guardar Gasto"}

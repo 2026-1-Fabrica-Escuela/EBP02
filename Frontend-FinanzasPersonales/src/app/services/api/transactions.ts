@@ -14,6 +14,18 @@ export const getTransactionsRequest = (token?: string | null) => {
   return request<unknown>(ENDPOINTS.transactions, { method: "GET" }, token);
 };
 
+export const getTransactionsByPeriodRequest = (
+  start: string,
+  end: string,
+  token?: string | null,
+) => {
+  return request<unknown>(
+    `${ENDPOINTS.transactions}/period?start=${start}&end=${end}`,
+    { method: "GET" },
+    token,
+  );
+};
+
 export const addTransactionRequest = (
   payload: CreateTransactionPayload,
   token?: string | null,

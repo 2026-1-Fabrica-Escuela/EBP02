@@ -21,4 +21,8 @@ public class WebConfig implements WebMvcConfigurer {
             .allowCredentials(true)
             .maxAge(3600);
     }
+    @org.springframework.context.annotation.Bean
+    public java.net.http.HttpClient httpClient() {
+        return java.net.http.HttpClient.newHttpClient();
+    }
 }

@@ -7,17 +7,15 @@ import { FluentCard } from "../components/ui/FluentCard";
 import { useApp } from "../context/AppContext";
 import { toast } from "sonner";
 
-const INCOME_CATEGORIES = [
-  { value: "Salario", label: "Salario" },
-  { value: "Freelance", label: "Freelance" },
-  { value: "Inversiones", label: "Inversiones" },
-  { value: "Ventas", label: "Ventas" },
-  { value: "Bonificaciones", label: "Bonificaciones" },
-  { value: "Otros ingresos", label: "Otros ingresos" },
-];
 
 export function RegisterIncomePage() {
-  const { addTransaction } = useApp();
+  const { categories, addTransaction } = useApp();
+
+  const incomeCategories = React.useMemo(() => {
+    return categories
+      .filter((cat) => cat.type === "INCOME")
+      .map((cat) => ({ value: cat.categoryId, label: cat.title }));
+  }, [categories]);
   const [form, setForm] = useState({ amount: "", date: "", description: "", category: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,12 +42,14 @@ export function RegisterIncomePage() {
 
     setIsSubmitting(true);
     try {
+      const selectedCat = incomeCategories.find(c => c.value === form.category);
       const result = await addTransaction({
         type: "ingreso",
         amount: parseFloat(form.amount),
         date: form.date,
         description: form.description,
-        category: form.category,
+        category: selectedCat?.label ?? form.category,
+        categoryId: form.category,
       });
 
       if (result.success) {
@@ -72,7 +72,7 @@ export function RegisterIncomePage() {
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
           <FluentInput label="Monto *" type="text" placeholder="Ej: 1500000" value={form.amount} onChange={set("amount")} error={errors.amount} />
           <FluentInput label="Fecha *" type="date" value={form.date} onChange={set("date")} error={errors.date} />
-          <FluentSelect label="Categoría *" value={form.category} onChange={(v) => setForm((p) => ({ ...p, category: v }))} options={INCOME_CATEGORIES} error={errors.category} />
+          <FluentSelect label="Categoría *" value={form.category} onChange={(v) => setForm((p) => ({ ...p, category: v }))} options={incomeCategories} error={errors.category} />
           <FluentInput label="Descripción *" placeholder="Ej: Salario mensual de marzo" value={form.description} onChange={set("description")} error={errors.description} />
           <FluentButton type="submit" fullWidth disabled={isSubmitting}>
             <PlusCircle size={18} /> {isSubmitting ? "Guardando..." : "Guardar Ingreso"}

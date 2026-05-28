@@ -30,11 +30,13 @@ export const ENDPOINTS = {
   logout: ensureLeadingSlash(import.meta.env.VITE_API_LOGOUT_ENDPOINT ?? "/auth/logout"),
   forgotPassword: ensureLeadingSlash(import.meta.env.VITE_API_FORGOT_PASSWORD_ENDPOINT ?? "/auth/forgot-password"),
   loginLogs: ensureLeadingSlash(import.meta.env.VITE_API_LOGIN_LOGS_ENDPOINT ?? "/admin/login-logs"),
+  adminUsers: "/admin/users",
   transactions: ensureLeadingSlash(import.meta.env.VITE_API_TRANSACTIONS_ENDPOINT ?? "/transactions"),
   users: ensureLeadingSlash(import.meta.env.VITE_API_USERS_ENDPOINT ?? "/users"),
   categories: ensureLeadingSlash(import.meta.env.VITE_API_CATEGORIES_ENDPOINT ?? "/categories"),
   budgets: ensureLeadingSlash(import.meta.env.VITE_API_BUDGETS_ENDPOINT ?? "/budgets"),
   pockets: ensureLeadingSlash(import.meta.env.VITE_API_POCKETS_ENDPOINT ?? "/pockets"),
+  reports: ensureLeadingSlash(import.meta.env.VITE_API_REPORTS_ENDPOINT ?? "/reports"),
 } as const;
 
 export const USE_MOCK_API = parseBooleanEnv(import.meta.env.VITE_API_USE_MOCK, import.meta.env.DEV);

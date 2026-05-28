@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { AlertTriangle, ArrowLeft, Save, ShieldCheck, User as UserIcon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Save, ShieldCheck, User as UserIcon } from "lucide-react";
 import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentInput } from "../components/ui/FluentInput";
@@ -21,10 +21,19 @@ function StatusBadge({ status }: { status?: "activa" | "suspendida" }) {
 }
 
 export function AdminUserEditPage() {
-  const { user, users, updateUserProfile } = useApp();
+  const { user, users, updateUserProfile, isInitializing } = useApp();
   const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
-  const targetUser = users.find((entry) => entry.id === userId && entry.role !== "admin") ?? null;
+  
+  if (isInitializing) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-[#1A237E]" />
+      </div>
+    );
+  }
+
+  const targetUser = users.find((entry) => entry.id === userId) ?? null;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,9 +61,17 @@ export function AdminUserEditPage() {
             </div>
             <p className="text-[#1a1a2e]">Usuario no encontrado</p>
             <p className="max-w-xs text-[0.8125rem] text-[#6b7280]">
-              El usuario solicitado no existe o no está disponible en la sesión actual.
+              ID buscado: <code className="bg-gray-100 px-1">{userId}</code>
             </p>
-            <FluentButton onClick={() => navigate("/dashboard/admin")}>
+            <div className="mt-4 w-full text-left">
+              <p className="text-[0.75rem] font-bold text-[#6b7280]">Usuarios disponibles ({users.length}):</p>
+              <ul className="mt-1 max-h-40 overflow-auto rounded border p-2 text-[0.625rem] text-[#6b7280]">
+                {users.map(u => (
+                  <li key={u.id}>{u.id} - {u.role} - {u.name}</li>
+                ))}
+              </ul>
+            </div>
+            <FluentButton onClick={() => navigate("/dashboard/admin")} className="mt-4">
               <ArrowLeft size={18} />
               Volver al panel
             </FluentButton>

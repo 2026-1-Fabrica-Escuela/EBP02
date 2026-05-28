@@ -187,13 +187,13 @@ const normalizeTransaction = (value: unknown, fallbackUserId?: string): Transact
 
   const id = pickString(value, ["id", "_id", "transactionId"]);
   const type = normalizeTransactionType(
-    pickString(value, ["type", "transactionType", "movementType", "tipo"]),
+    pickString(value, ["type", "transactionType", "movementType", "tipo", "categoryType"]),
   );
   const amount = pickNumber(value, ["amount", "value", "monto"]);
   const date = pickString(value, ["date", "transactionDate", "createdAt", "fecha"]);
   const description =
     pickString(value, ["description", "concept", "detalle", "concepto"]) ?? "Sin descripción";
-  const category = pickString(value, ["category", "categoria"]) ?? "Sin categoría";
+  const category = pickString(value, ["category", "categoria", "categoryTitle"]) ?? "Sin categoría";
   const userId =
     pickString(value, ["userId", "user_id", "ownerId", "usuarioId"]) ?? fallbackUserId ?? "";
 

@@ -38,4 +38,10 @@ public class User {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "status", length = 20)
+    private String status = "activa";
+
+    @Column(name = "suspend_reason", columnDefinition = "text")
+    private String suspendReason;
 }

@@ -5,5 +5,7 @@ export interface CreateTransactionPayload {
   amount: number;
   date: string;
   description: string;
-  category: string;
+  category?: string;
+  categoryId: string;
+  status: "PENDING" | "COMPLETED" | "CANCELLED";
 }

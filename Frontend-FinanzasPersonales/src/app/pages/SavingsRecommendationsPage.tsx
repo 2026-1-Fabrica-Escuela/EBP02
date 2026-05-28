@@ -4,6 +4,9 @@ import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentSelect } from "../components/ui/FluentSelect";
 import { useApp, type Transaction } from "../context/AppContext";
+import { getAiRecommendationsRequest } from "../services/api/ai";
+import { getStoredAuthToken } from "../services/api";
+import { Loader2 } from "lucide-react";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("es-CO", {
@@ -87,37 +90,7 @@ interface MonthResult {
   monthLabel: string;
 }
 
-const generateRecommendations = (expenses: Transaction[]): Recommendation[] => {
-  const groupedByCategory: Record<string, { count: number; total: number }> = {};
-
-  for (const transaction of expenses) {
-    if (!groupedByCategory[transaction.category]) {
-      groupedByCategory[transaction.category] = { count: 0, total: 0 };
-    }
-
-    groupedByCategory[transaction.category].count += 1;
-    groupedByCategory[transaction.category].total += transaction.amount;
-  }
-
-  const grandTotal = expenses.reduce((sum, transaction) => sum + transaction.amount, 0);
-  const entries = Object.entries(groupedByCategory).sort((left, right) => right[1].total - left[1].total);
-  const topCategory = entries[0]?.[0];
-
-  const recommendations = entries.map(([category, { count, total }]) => {
-    const pct = grandTotal > 0 ? (total / grandTotal) * 100 : 0;
-    const isTopSpender = category === topCategory;
-    const reductionRate = isTopSpender ? 0.2 : count >= 4 ? 0.15 : 0.1;
-    const ahorroEstimado = Math.round(total * reductionRate);
-
-    return {
-      category,
-      motivo: buildMotivo(category, count, total, pct, isTopSpender),
-      ahorroEstimado,
-    };
-  });
-
-  return recommendations.sort((left, right) => right.ahorroEstimado - left.ahorroEstimado);
-};
+// Removed static generateRecommendations function
 
 const CATEGORY_COLORS: Record<string, string> = {
   Alimentación: "#FFC107",
@@ -167,8 +140,9 @@ export function SavingsRecommendationsPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [monthError, setMonthError] = useState(false);
   const [result, setResult] = useState<MonthResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!selectedMonth) {
       setMonthError(true);
       setResult(null);
@@ -178,27 +152,20 @@ export function SavingsRecommendationsPage() {
     setMonthError(false);
 
     const monthLabel = monthOptions.find((option) => option.value === selectedMonth)?.label ?? selectedMonth;
-    const activeUserId = user?.id;
 
-    if (!activeUserId) {
+    setIsLoading(true);
+    setResult(null);
+
+    try {
+      const token = getStoredAuthToken();
+      const recs = await getAiRecommendationsRequest(selectedMonth, token);
+      setResult({ recs, hasEnoughData: recs.length > 0, monthLabel });
+    } catch (error) {
+      console.error("Error fetching AI recommendations:", error);
       setResult({ recs: [], hasEnoughData: false, monthLabel });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-
-    const expenses = transactions.filter(
-      (transaction) =>
-        transaction.userId === activeUserId &&
-        transaction.type === "gasto" &&
-        transaction.date.startsWith(selectedMonth),
-    );
-
-    if (expenses.length < 3) {
-      setResult({ recs: [], hasEnoughData: false, monthLabel });
-      return;
-    }
-
-    const recs = generateRecommendations(expenses);
-    setResult({ recs, hasEnoughData: true, monthLabel });
   };
 
   return (
@@ -227,9 +194,9 @@ export function SavingsRecommendationsPage() {
             />
           </div>
 
-          <FluentButton className="w-full sm:w-auto" onClick={handleGenerate}>
-            <Sparkles size={18} />
-            Generar recomendaciones
+          <FluentButton className="w-full sm:w-auto" onClick={handleGenerate} disabled={isLoading}>
+            {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+            {isLoading ? "Generando..." : "Generar recomendaciones"}
           </FluentButton>
         </div>
 
@@ -277,7 +244,7 @@ export function SavingsRecommendationsPage() {
         </>
       )}
 
-      {!result && !monthError && (
+      {!result && !monthError && !isLoading && (
         <FluentCard>
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1A237E]/10">
@@ -287,6 +254,22 @@ export function SavingsRecommendationsPage() {
             <p className="max-w-xs text-[0.8125rem] text-[#6b7280]">
               Selecciona un mes y haz clic en "Generar recomendaciones" para obtener sugerencias personalizadas basadas en tus hábitos financieros
             </p>
+          </div>
+        </FluentCard>
+      )}
+
+      {isLoading && (
+        <FluentCard>
+          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1A237E]/10">
+              <Loader2 size={32} className="animate-spin text-[#1A237E]" />
+            </div>
+            <div>
+              <p className="mb-1 font-medium text-[#1a1a2e]">Generando recomendaciones de IA...</p>
+              <p className="max-w-sm text-[0.8125rem] text-[#6b7280]">
+                Analizando tus gastos y presupuesto para crear un plan de ahorro personalizado.
+              </p>
+            </div>
           </div>
         </FluentCard>
       )}

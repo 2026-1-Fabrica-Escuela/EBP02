@@ -11,6 +11,8 @@ import java.util.UUID;
 public interface PocketRepository extends JpaRepository<Pocket, UUID> {
     List<Pocket> findByUserUserId(UUID userId);
     List<Pocket> findByBudgetBudgetId(UUID budgetId);
+    
+    java.util.Optional<Pocket> findByUserUserIdAndCategoryCategoryIdAndBudgetMonthAndBudgetYear(UUID userId, UUID categoryId, Integer month, Integer year);
 
     @Query("SELECT COALESCE(SUM(p.allocatedAmount), 0) FROM Pocket p WHERE p.budget.budgetId = :budgetId")
     BigDecimal sumAllocatedByBudget(@Param("budgetId") UUID budgetId);

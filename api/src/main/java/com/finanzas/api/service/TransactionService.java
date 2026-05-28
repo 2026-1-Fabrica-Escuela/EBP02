@@ -50,9 +50,19 @@ public class TransactionService {
         transaction.setStatus(request.getStatus());
         transaction.setDate(request.getDate());
 
-        // Si tiene pocket, descontar el saldo del bolsillo
-        if (request.getPocketId() != null) {
-            Pocket pocket = pocketRepository.findById(request.getPocketId())
+        // Si no tiene pocketId, intentar buscar uno automáticamente por categoría y fecha
+        UUID pocketId = request.getPocketId();
+        if (pocketId == null) {
+            pocketId = pocketRepository.findByUserUserIdAndCategoryCategoryIdAndBudgetMonthAndBudgetYear(
+                user.getUserId(),
+                category.getCategoryId(),
+                transaction.getDate().getMonthValue(),
+                transaction.getDate().getYear()
+            ).map(Pocket::getPocketId).orElse(null);
+        }
+
+        if (pocketId != null) {
+            Pocket pocket = pocketRepository.findById(pocketId)
                 .orElseThrow(() -> new RuntimeException("Bolsillo no encontrado"));
 
             if (!pocket.getIsSavings() && category.getType().equals("EXPENSE")) {

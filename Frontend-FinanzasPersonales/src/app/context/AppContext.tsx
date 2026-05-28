@@ -19,13 +19,17 @@ import {
   getCurrentUserRequest,
   getStoredAuthToken,
   getTransactionsRequest,
-  getUsersRequest,
   loginRequest,
   logoutRequest,
   registerRequest,
   deletePocketRequest,
   updateBudgetRequest,
   saveStoredAuthToken,
+  getCategoriesRequest,
+  activateUserRequest,
+  getAdminUsersRequest,
+  suspendUserRequest,
+  updateAdminUserRequest,
 } from "../services/api";
 import { toErrorMessage } from "./errors";
 import {
@@ -57,6 +61,7 @@ import type {
   Transaction,
   UpdateBudgetRequest,
   User,
+  Category,
 } from "./types";
 
 export type {
@@ -75,6 +80,7 @@ export type {
   Transaction,
   UpdateBudgetRequest,
   User,
+  Category,
 } from "./types";
 
 const AppContext = createContext<AppState | null>(null);
@@ -86,6 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<BudgetResponse[]>([]);
   const [pockets, setPockets] = useState<PocketResponse[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
 
   const clearLocalSession = useCallback(() => {
@@ -96,14 +103,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactions([]);
     setBudgets([]);
     setPockets([]);
+    setCategories([]);
   }, []);
 
   const syncBudgetDataForUser = useCallback(async () => {
     const token = getStoredAuthToken();
 
-    const [budgetsResult, pocketsResult] = await Promise.allSettled([
+    const [budgetsResult, pocketsResult, categoriesResult] = await Promise.allSettled([
       getBudgetsRequest(token),
       getPocketsRequest(token),
+      getCategoriesRequest(token),
     ]);
 
     if (budgetsResult.status === "fulfilled") {
@@ -118,7 +127,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPockets([]);
     }
 
-    return budgetsResult.status === "fulfilled" && pocketsResult.status === "fulfilled";
+    if (categoriesResult.status === "fulfilled") {
+      setCategories(categoriesResult.value);
+    } else {
+      setCategories([]);
+    }
+
+    return budgetsResult.status === "fulfilled" && pocketsResult.status === "fulfilled" && categoriesResult.status === "fulfilled";
   }, []);
 
   const loadDataForUser = useCallback(async (activeUser: User) => {
@@ -131,8 +146,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (activeUser.role === "admin") {
       const [usersResult, loginLogsResult] = await Promise.allSettled([
-        getUsersRequest(token),
-        getLoginLogsRequest(token),
+        getAdminUsersRequest(token),
+        getLoginLogsRequest(
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          new Date().toISOString().split("T")[0],
+          token
+        ),
       ]);
 
       if (usersResult.status === "fulfilled") {
@@ -282,7 +301,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const token = getStoredAuthToken();
-      const payload = await addTransactionRequest(transactionData, token);
+      const createPayload: any = {
+        ...transactionData,
+        status: "COMPLETED",
+      };
+      
+      const payload = await addTransactionRequest(createPayload, token);
 
       const created = extractTransactionFromPayload(payload, user.id);
       if (created) {
@@ -312,32 +336,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    const targetUser = users.find((entry) => entry.id === userId);
-    if (!targetUser) {
+    try {
+      console.log(`[AdminAction] Suspending user ${userId}`);
+      const token = getStoredAuthToken();
+      const payload = await suspendUserRequest(userId, reason, token);
+      const updatedUser = extractUserFromPayload(payload);
+
+      if (updatedUser) {
+        setUsers((prev) => prev.map((entry) => (entry.id === userId ? updatedUser : entry)));
+      } else {
+        await loadDataForUser(user);
+      }
+
+      return {
+        success: true,
+        message: "El usuario ha sido suspendido con éxito",
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "No se encontró el usuario seleccionado",
+        message: toErrorMessage(error, "No se pudo suspender al usuario"),
       };
     }
-
-    if (targetUser.role === "admin") {
-      return {
-        success: false,
-        message: "No se puede suspender una cuenta de administrador",
-      };
-    }
-
-    setUsers((prev) => prev.map((entry) => (
-      entry.id === userId
-        ? { ...entry, status: "suspendida", suspendReason: reason }
-        : entry
-    )));
-
-    return {
-      success: true,
-      message: "El usuario ha sido suspendido con éxito",
-    };
-  }, [user, users]);
+  }, [user, loadDataForUser]);
 
   const activateUser = useCallback(async (userId: string): Promise<ActionResult> => {
     if (!user || user.role !== "admin") {
@@ -347,32 +368,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    const targetUser = users.find((entry) => entry.id === userId);
-    if (!targetUser) {
+    try {
+      console.log(`[AdminAction] Activating user ${userId}`);
+      const token = getStoredAuthToken();
+      const payload = await activateUserRequest(userId, token);
+      const updatedUser = extractUserFromPayload(payload);
+
+      if (updatedUser) {
+        setUsers((prev) => prev.map((entry) => (entry.id === userId ? updatedUser : entry)));
+      } else {
+        await loadDataForUser(user);
+      }
+
+      return {
+        success: true,
+        message: "La cuenta ha sido reactivada con éxito",
+      };
+    } catch (error) {
       return {
         success: false,
-        message: "No se encontró el usuario seleccionado",
+        message: toErrorMessage(error, "No se pudo activar al usuario"),
       };
     }
+  }, [user, loadDataForUser]);
 
-    if (targetUser.status !== "suspendida") {
-      return {
-        success: false,
-        message: "La cuenta no puede activarse porque no está suspendida",
-      };
+  const getUserById = useCallback(async (userId: string): Promise<User | null> => {
+    if (!user || user.role !== "admin") return null;
+    try {
+      const token = getStoredAuthToken();
+      const payload = await getAdminUserRequest(userId, token);
+      return extractUserFromPayload(payload);
+    } catch {
+      return null;
     }
-
-    setUsers((prev) => prev.map((entry) => (
-      entry.id === userId
-        ? { ...entry, status: "activa", suspendReason: null }
-        : entry
-    )));
-
-    return {
-      success: true,
-      message: "La cuenta ha sido reactivada con éxito",
-    };
-  }, [user, users]);
+  }, [user]);
 
   const updateUserProfile = useCallback(async (
     userId: string,
@@ -382,14 +411,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return {
         success: false,
         message: "Debes iniciar sesión como administrador para editar usuarios",
-      };
-    }
-
-    const targetUser = users.find((entry) => entry.id === userId);
-    if (!targetUser) {
-      return {
-        success: false,
-        message: "No se encontró el usuario seleccionado",
       };
     }
 
@@ -403,21 +424,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    setUsers((prev) => prev.map((entry) => (
-      entry.id === userId
-        ? { ...entry, name: normalizedName, email: normalizedEmail }
-        : entry
-    )));
+    try {
+      const token = getStoredAuthToken();
+      const payload = await updateAdminUserRequest(userId, { name: normalizedName, email: normalizedEmail }, token);
+      const updatedUser = extractUserFromPayload(payload);
 
-    if (user.id === userId) {
-      setUser((current) => (current ? { ...current, name: normalizedName, email: normalizedEmail } : current));
+      if (updatedUser) {
+        setUsers((prev) => prev.map((entry) => (entry.id === userId ? updatedUser : entry)));
+        if (user.id === userId) {
+          setUser(updatedUser);
+        }
+      } else {
+        await loadDataForUser(user);
+      }
+
+      return {
+        success: true,
+        message: "El usuario ha sido actualizado con éxito",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: toErrorMessage(error, "No se pudo actualizar el perfil del usuario"),
+      };
     }
-
-    return {
-      success: true,
-      message: "El usuario ha sido actualizado con éxito",
-    };
-  }, [user, users]);
+  }, [user, loadDataForUser]);
 
   const refreshBudgets = useCallback(async (): Promise<ActionResult> => {
     if (!user) {
@@ -661,6 +692,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     transactions,
     budgets,
     pockets,
+    categories,
     isInitializing,
     login,
     register,
@@ -670,6 +702,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     suspendUser,
     activateUser,
     updateUserProfile,
+    getUserById,
     refreshBudgets,
     createBudget,
     updateBudget,

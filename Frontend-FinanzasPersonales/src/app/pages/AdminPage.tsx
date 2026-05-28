@@ -306,7 +306,7 @@ export function AdminPage() {
     );
   }
 
-  const managedUsers = users.filter((entry) => entry.role !== "admin");
+  const managedUsers = users;
   const activeCount = managedUsers.filter((entry) => (entry.status ?? "activa") === "activa").length;
   const suspendedCount = managedUsers.filter((entry) => (entry.status ?? "activa") === "suspendida").length;
 

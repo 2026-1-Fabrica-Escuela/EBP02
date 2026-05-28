@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   AlertTriangle,
   ArrowDownCircle,
   ArrowUpCircle,
   History,
   Info,
+  Loader2,
   Scale,
   Search,
   TrendingDown,
@@ -14,17 +15,22 @@ import {
 import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentInput } from "../components/ui/FluentInput";
-import { useApp, type Transaction } from "../context/AppContext";
+import { useApp } from "../context/AppContext";
+import { getTransactionsByPeriodRequest, getStoredAuthToken } from "../services/api";
 
 type FilterError = "required" | "invalid-range" | null;
 
-interface AppliedRange {
-  from: string;
-  to: string;
+interface TransactionRow {
+  id: string;
+  type: "ingreso" | "gasto";
+  amount: number;
+  date: string;
+  description: string;
+  category: string;
 }
 
 interface ResultState {
-  transactions: Transaction[];
+  transactions: TransactionRow[];
   totalIngresos: number;
   totalEgresos: number;
   balance: number;
@@ -74,6 +80,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const categoryColor = (category: string) => CATEGORY_COLORS[category] ?? "#6b7280";
 
+const normalizeTransactionType = (value: string | null): "ingreso" | "gasto" | null => {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (["ingreso", "income", "entrada"].includes(normalized)) return "ingreso";
+  if (["gasto", "expense", "egreso"].includes(normalized)) return "gasto";
+  return null;
+};
+
 function SummaryCard({
   label,
   value,
@@ -95,7 +109,7 @@ function SummaryCard({
   );
 }
 
-function TransactionRow({ transaction }: { transaction: Transaction }) {
+function TransactionRowComponent({ transaction }: { transaction: TransactionRow }) {
   const isIncome = transaction.type === "ingreso";
 
   return (
@@ -140,64 +154,76 @@ function TransactionRow({ transaction }: { transaction: Transaction }) {
 }
 
 export function HistoryPage() {
-  const { user, transactions } = useApp();
+  const { user } = useApp();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [filterError, setFilterError] = useState<FilterError>(null);
-  const [appliedRange, setAppliedRange] = useState<AppliedRange | null>(null);
+  const [result, setResult] = useState<ResultState | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const userTransactions = useMemo(() => {
-    if (!user) {
-      return [];
-    }
-
-    return [...transactions]
-      .filter((transaction) => transaction.userId === user.id)
-      .sort((left, right) => right.date.localeCompare(left.date));
-  }, [transactions, user?.id]);
-
-  const result = useMemo<ResultState | null>(() => {
-    if (!appliedRange) {
-      return null;
-    }
-
-    const filteredTransactions = userTransactions.filter(
-      (transaction) => transaction.date >= appliedRange.from && transaction.date <= appliedRange.to,
-    );
-
-    const totalIngresos = filteredTransactions
-      .filter((transaction) => transaction.type === "ingreso")
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-    const totalEgresos = filteredTransactions
-      .filter((transaction) => transaction.type === "gasto")
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-    return {
-      transactions: filteredTransactions,
-      totalIngresos,
-      totalEgresos,
-      balance: totalIngresos - totalEgresos,
-      from: appliedRange.from,
-      to: appliedRange.to,
-    };
-  }, [appliedRange, userTransactions]);
-
-  const handleVisualize = () => {
+  const handleVisualize = async () => {
     if (!from || !to) {
       setFilterError("required");
-      setAppliedRange(null);
+      setResult(null);
       return;
     }
 
     if (to < from) {
       setFilterError("invalid-range");
-      setAppliedRange(null);
+      setResult(null);
       return;
     }
 
     setFilterError(null);
-    setAppliedRange({ from, to });
+    setApiError(null);
+    setLoading(true);
+
+    try {
+      const token = getStoredAuthToken();
+      const payload = await getTransactionsByPeriodRequest(from, to, token);
+
+      // The backend returns a list of TransactionResponse objects
+      const rawList: unknown[] = Array.isArray(payload)
+        ? payload
+        : (payload as any)?.transactions ?? (payload as any)?.data ?? (Array.isArray(payload) ? payload : [payload]);
+
+      const finalList: unknown[] = Array.isArray(rawList) ? rawList : [];
+
+      const transactions: TransactionRow[] = finalList
+        .map((item: any) => {
+          const id = item.transactionId ?? item.id ?? "";
+          const type = normalizeTransactionType(item.categoryType ?? item.type) ?? "gasto";
+          const amount = typeof item.amount === "number" ? item.amount : Number(item.amount) || 0;
+          const date = item.date ?? "";
+          const description = item.description ?? "Sin descripción";
+          const category = item.categoryTitle ?? item.category ?? "Sin categoría";
+          return { id: String(id), type, amount, date, description, category } as TransactionRow;
+        })
+        .filter((t) => t.id && t.date);
+
+      const totalIngresos = transactions
+        .filter((t) => t.type === "ingreso")
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const totalEgresos = transactions
+        .filter((t) => t.type === "gasto")
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      setResult({
+        transactions,
+        totalIngresos,
+        totalEgresos,
+        balance: totalIngresos - totalEgresos,
+        from,
+        to,
+      });
+    } catch (error: any) {
+      setApiError(error?.message ?? "Error al consultar las transacciones");
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -239,9 +265,9 @@ export function HistoryPage() {
             />
           </div>
 
-          <FluentButton className="w-full sm:w-auto" onClick={handleVisualize}>
-            <Search size={18} />
-            Visualizar
+          <FluentButton className="w-full sm:w-auto" onClick={handleVisualize} disabled={loading}>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+            {loading ? "Cargando..." : "Visualizar"}
           </FluentButton>
         </div>
 
@@ -260,6 +286,13 @@ export function HistoryPage() {
             <p className="text-[0.8125rem] text-[#FF5252]">
               Debes ingresar ambas fechas para aplicar el filtro
             </p>
+          </div>
+        )}
+
+        {apiError && (
+          <div className="mt-4 flex items-center gap-3 rounded-[10px] border border-[#FF5252]/30 bg-[#FF5252]/5 p-3">
+            <AlertTriangle size={18} className="shrink-0 text-[#FF5252]" />
+            <p className="text-[0.8125rem] text-[#FF5252]">{apiError}</p>
           </div>
         )}
       </FluentCard>
@@ -327,7 +360,7 @@ export function HistoryPage() {
 
               <div className="space-y-2">
                 {result.transactions.map((transaction) => (
-                  <TransactionRow key={transaction.id} transaction={transaction} />
+                  <TransactionRowComponent key={transaction.id} transaction={transaction} />
                 ))}
               </div>
             </FluentCard>
@@ -335,7 +368,7 @@ export function HistoryPage() {
         </div>
       )}
 
-      {!result && !filterError && (
+      {!result && !filterError && !apiError && (
         <FluentCard>
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#1A237E]/10">

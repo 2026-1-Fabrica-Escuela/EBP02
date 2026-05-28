@@ -12,7 +12,7 @@ import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentInput } from "../components/ui/FluentInput";
 import { FluentSelect } from "../components/ui/FluentSelect";
-import { useApp, type Budget, type Pocket } from "../context/AppContext";
+import { useApp, type Budget, type Pocket, type Category } from "../context/AppContext";
 
 type View = "form" | "list";
 
@@ -22,17 +22,6 @@ interface FormState {
   amount: string;
 }
 
-const EXPENSE_CATEGORIES = [
-  { value: "Alimentación", label: "Alimentación" },
-  { value: "Transporte", label: "Transporte" },
-  { value: "Vivienda", label: "Vivienda" },
-  { value: "Servicios", label: "Servicios" },
-  { value: "Salud", label: "Salud" },
-  { value: "Entretenimiento", label: "Entretenimiento" },
-  { value: "Educación", label: "Educación" },
-  { value: "Ropa", label: "Ropa" },
-  { value: "Otros gastos", label: "Otros gastos" },
-];
 
 const MONTHS = [
   { value: "2025-10", label: "Octubre 2025" },
@@ -98,7 +87,13 @@ const getBudgetPockets = (pockets: Pocket[], budgetId: string) =>
   pockets.filter((pocket) => pocket.budgetId === budgetId);
 
 export function BudgetPage() {
-  const { budgets, pockets, createBudget, updateBudget, createPocket } = useApp();
+  const { budgets, pockets, categories, createBudget, updateBudget, createPocket } = useApp();
+
+  const expenseCategories = useMemo(() => {
+    return categories
+      .filter((cat) => cat.type === "EXPENSE")
+      .map((cat) => ({ value: cat.categoryId, label: cat.title }));
+  }, [categories]);
 
   const [view, setView] = useState<View>("form");
   const [form, setForm] = useState<FormState>({ month: "", category: "", amount: "" });
@@ -170,13 +165,14 @@ export function BudgetPage() {
     }
 
     const amount = parseAmount(form.amount);
-    const categoryLabel = form.category.trim();
+    const categoryId = form.category;
+    const categoryLabel = expenseCategories.find(c => c.value === categoryId)?.label || "";
     const existingBudget = findMonthBudget(budgets, parsedPeriod.month, parsedPeriod.year);
 
     if (existingBudget) {
       const monthPockets = getBudgetPockets(pockets, existingBudget.budgetId);
       const duplicatePocket = monthPockets.some(
-        (pocket) => normalizeText(pocket.title) === normalizeText(categoryLabel),
+        (pocket) => normalizeText(pocket.categoryTitle ?? pocket.title) === normalizeText(categoryLabel),
       );
 
       if (duplicatePocket) {
@@ -220,7 +216,7 @@ export function BudgetPage() {
       const pocketResult = await createPocket({
         budgetId,
         title: categoryLabel,
-        categoryId: null,
+        categoryId: categoryId,
         allocatedAmount: amount,
         isSavings: false,
       });
@@ -335,7 +331,7 @@ export function BudgetPage() {
                 setForm((current) => ({ ...current, category: value }));
                 clearFieldError("category");
               }}
-              options={EXPENSE_CATEGORIES}
+              options={expenseCategories}
               placeholder="Selecciona una categoría"
               error={errors.category}
             />
@@ -411,9 +407,14 @@ export function BudgetPage() {
                           {pocket.categoryTitle ?? pocket.title}
                         </span>
                       </div>
-                      <span className="text-[0.875rem] text-[#1A237E]" style={{ fontWeight: 600 }}>
-                        {formatCurrency(pocket.allocatedAmount)}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-[0.875rem] text-[#1A237E]" style={{ fontWeight: 600 }}>
+                          {formatCurrency(pocket.currentAmount)}
+                        </span>
+                        <span className="text-[0.6875rem] text-[#6b7280]">
+                          de {formatCurrency(pocket.allocatedAmount)}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

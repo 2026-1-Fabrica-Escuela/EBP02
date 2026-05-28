@@ -8,9 +8,16 @@ export {
 } from "./auth-storage";
 
 export {
+  activateUserRequest,
+  getAdminUsersRequest,
+  getLoginLogsRequest,
+  suspendUserRequest,
+  updateAdminUserRequest,
+} from "./admin";
+
+export {
   forgotPasswordRequest,
   getCurrentUserRequest,
-  getLoginLogsRequest,
   loginRequest,
   logoutRequest,
   registerRequest,
@@ -18,6 +25,7 @@ export {
 
 export {
   addTransactionRequest,
+  getTransactionsByPeriodRequest,
   getTransactionsRequest,
 } from "./transactions";
 
@@ -38,6 +46,11 @@ export {
 } from "./pockets";
 
 export { getCategoriesRequest } from "./categories";
+
+export { getAiRecommendationsRequest } from "./ai";
+
+export { getReportRequest } from "./reports";
+export type { ReportApiResponse } from "./reports";
 
 export { USE_MOCK_API } from "./config";
 export { MOCK_LOGIN_CREDENTIALS } from "./mock-api";
