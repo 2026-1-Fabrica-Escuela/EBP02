@@ -1,6 +1,7 @@
 package com.finanzas.api.service;
 
 import com.finanzas.api.dto.request.TransactionRequest;
+import com.finanzas.api.dto.request.TransactionUpdateRequest;
 import com.finanzas.api.dto.response.TransactionResponse;
 import com.finanzas.api.model.*;
 import com.finanzas.api.repository.*;
@@ -83,17 +84,10 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionResponse update(UUID id, TransactionRequest request) {
+    public TransactionResponse update(UUID id, TransactionUpdateRequest request) {
         Transaction transaction = transactionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
         validateOwnership(transaction.getUser().getUserId());
-
-        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("El monto debe ser un valor numérico mayor a cero");
-        }
-        if (request.getCategoryId() == null || request.getDate() == null || request.getStatus() == null) {
-            throw new RuntimeException("Por favor, completa todos los campos obligatorios");
-        }
 
         Category category = categoryRepository.findById(request.getCategoryId())
             .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
@@ -101,7 +95,6 @@ public class TransactionService {
         transaction.setCategory(category);
         transaction.setAmount(request.getAmount());
         transaction.setDescription(request.getDescription());
-        transaction.setStatus(request.getStatus());
         transaction.setDate(request.getDate());
         return toResponse(transactionRepository.save(transaction));
     }

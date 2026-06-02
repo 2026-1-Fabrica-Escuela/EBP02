@@ -175,7 +175,7 @@ function EditBudgetModal({
 }
 
 export function BudgetPage() {
-  const { budgets, pockets, categories, createBudget, updateBudget, createPocket } = useApp();
+  const { budgets, pockets, categories, createBudget, updateBudget, createPocket, refreshData } = useApp();
 
   const expenseCategories = useMemo(() => {
     return categories
@@ -521,7 +521,7 @@ export function BudgetPage() {
                 <div className="mt-3 pt-3 border-t border-[#e0e0e0]/50 flex justify-between items-center">
                   <span className="text-[0.8125rem] text-[#6b7280]">Total presupuestado</span>
                   <span className="text-[0.9375rem] text-[#1a1a2e]" style={{ fontWeight: 600 }}>
-                    {formatCurrency(group.total)}
+                    {formatCurrency(group.budget.totalAmount)}
                   </span>
                 </div>
               </FluentCard>
@@ -539,6 +539,7 @@ export function BudgetPage() {
             if (result.success) {
               toast.success("La modificación ha sido exitosa.");
               setEditingBudget(null);
+              await refreshData();
             } else {
               toast.error(result.message);
             }

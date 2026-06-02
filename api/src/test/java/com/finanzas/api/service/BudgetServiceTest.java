@@ -1,6 +1,8 @@
 package com.finanzas.api.service;
 
 import com.finanzas.api.dto.request.BudgetRequest;
+import com.finanzas.api.dto.request.BudgetUpdateRequest;
+import com.finanzas.api.model.Pocket;
 import com.finanzas.api.dto.response.BudgetResponse;
 import com.finanzas.api.model.Budget;
 import com.finanzas.api.model.User;
@@ -20,6 +22,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -68,91 +71,30 @@ class BudgetServiceTest {
         when(pocketRepository.sumAllocatedByBudget(budgetId)).thenReturn(BigDecimal.ZERO);
         when(budgetRepository.save(any(Budget.class))).thenAnswer(i -> i.getArgument(0));
 
-        BudgetRequest req = buildRequest(new BigDecimal("800.00"), 5, 2025);
+        BudgetUpdateRequest req = buildUpdateRequest(new BigDecimal("800.00"));
         BudgetResponse response = budgetService.update(budgetId, req);
 
         assertNotNull(response);
         assertEquals(new BigDecimal("800.00"), response.getTotalAmount());
     }
 
-    // ─── HU-19 C3: campos obligatorios vacíos ────────────────────────────────
-
-    @Test
-    void update_nullAmount_throwsException() {
-        Budget budget = buildBudget(new BigDecimal("500.00"), 5, 2025);
-        when(budgetRepository.findById(budgetId)).thenReturn(Optional.of(budget));
-
-        BudgetRequest req = buildRequest(null, 5, 2025);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, req));
-
-        assertEquals("Por favor completa todos los campos obligatorios", ex.getMessage());
-    }
-
-    // ─── HU-19 C4: monto igual o menor a cero ────────────────────────────────
-
-    @Test
-    void update_zeroAmount_throwsException() {
-        Budget budget = buildBudget(new BigDecimal("500.00"), 5, 2025);
-        when(budgetRepository.findById(budgetId)).thenReturn(Optional.of(budget));
-
-        BudgetRequest req = buildRequest(BigDecimal.ZERO, 5, 2025);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, req));
-
-        assertEquals("El monto del presupuesto debe ser mayor a cero", ex.getMessage());
-    }
-
-    @Test
-    void update_negativeAmount_throwsException() {
-        Budget budget = buildBudget(new BigDecimal("500.00"), 5, 2025);
-        when(budgetRepository.findById(budgetId)).thenReturn(Optional.of(budget));
-
-        BudgetRequest req = buildRequest(new BigDecimal("-100.00"), 5, 2025);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, req));
-
-        assertEquals("El monto del presupuesto debe ser mayor a cero", ex.getMessage());
-    }
-
-    // ─── HU-19 C5: monto menor al asignado a bolsillos ───────────────────────
+    // ─── HU-19 C5: monto menor al asignado a bolsillos (con múltiples bolsillos)
 
     @Test
     void update_amountLessThanAllocated_throwsException() {
         Budget budget = buildBudget(new BigDecimal("500.00"), 5, 2025);
         when(budgetRepository.findById(budgetId)).thenReturn(Optional.of(budget));
+
+        // Simular 2 bolsillos para que se ejecute la validación de monto mínimo
+        Pocket p1 = new Pocket(); p1.setAllocatedAmount(new BigDecimal("200.00"));
+        Pocket p2 = new Pocket(); p2.setAllocatedAmount(new BigDecimal("200.00"));
+        when(pocketRepository.findByBudgetBudgetId(budgetId)).thenReturn(List.of(p1, p2));
         when(pocketRepository.sumAllocatedByBudget(budgetId)).thenReturn(new BigDecimal("400.00"));
 
-        BudgetRequest req = buildRequest(new BigDecimal("300.00"), 5, 2025);
-
         RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, req));
+            () -> budgetService.update(budgetId, buildUpdateRequest(new BigDecimal("300.00"))));
 
         assertTrue(ex.getMessage().contains("menor al ya asignado"));
-    }
-
-    // ─── HU-19: cambio de mes con conflicto ──────────────────────────────────
-
-    @Test
-    void update_changeMonthConflict_throwsException() {
-        Budget budget = buildBudget(new BigDecimal("500.00"), 5, 2025);
-        when(budgetRepository.findById(budgetId)).thenReturn(Optional.of(budget));
-        when(pocketRepository.sumAllocatedByBudget(budgetId)).thenReturn(BigDecimal.ZERO);
-
-        Budget existing = buildBudget(new BigDecimal("300.00"), 6, 2025);
-        existing.setBudgetId(UUID.randomUUID()); // diferente ID → conflicto
-        when(budgetRepository.findByUserUserIdAndMonthAndYear(userId, 6, 2025))
-            .thenReturn(Optional.of(existing));
-
-        BudgetRequest req = buildRequest(new BigDecimal("500.00"), 6, 2025);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, req));
-
-        assertEquals("Ya existe un presupuesto para ese mes y año", ex.getMessage());
     }
 
     // ─── HU-19: presupuesto no encontrado ────────────────────────────────────
@@ -162,9 +104,27 @@ class BudgetServiceTest {
         when(budgetRepository.findById(budgetId)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> budgetService.update(budgetId, buildRequest(new BigDecimal("500.00"), 5, 2025)));
+            () -> budgetService.update(budgetId, buildUpdateRequest(new BigDecimal("500.00"))));
 
         assertEquals("Presupuesto no encontrado", ex.getMessage());
+    }
+
+    // ─── create: duplicado ────────────────────────────────────────────────────
+
+    @Test
+    void create_duplicatePeriod_throwsException() {
+        when(budgetRepository.findByUserUserIdAndMonthAndYear(userId, 5, 2025))
+            .thenReturn(Optional.of(buildBudget(new BigDecimal("500.00"), 5, 2025)));
+
+        BudgetRequest req = new BudgetRequest();
+        req.setTotalAmount(new BigDecimal("600.00"));
+        req.setMonth(5);
+        req.setYear(2025);
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+            () -> budgetService.create(req));
+
+        assertEquals("Ya existe un presupuesto para ese mes y año", ex.getMessage());
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────
@@ -179,11 +139,9 @@ class BudgetServiceTest {
         return b;
     }
 
-    private BudgetRequest buildRequest(BigDecimal amount, int month, int year) {
-        BudgetRequest req = new BudgetRequest();
+    private BudgetUpdateRequest buildUpdateRequest(BigDecimal amount) {
+        BudgetUpdateRequest req = new BudgetUpdateRequest();
         req.setTotalAmount(amount);
-        req.setMonth(month);
-        req.setYear(year);
         return req;
     }
 }

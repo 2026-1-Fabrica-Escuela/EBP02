@@ -11,9 +11,8 @@ import com.finanzas.api.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -33,15 +32,15 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<AuthResponse> getCurrentUser(Principal principal) {
-        return ResponseEntity.ok(authService.getCurrentUser(principal.getName()));
+    public ResponseEntity<AuthResponse> getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(authService.getCurrentUser(email));
     }
 
-    @PutMapping("/me")
-    public ResponseEntity<AuthResponse> updateMyProfile(Principal principal,
-                                                        @RequestBody UserUpdateRequest request) {
-        return ResponseEntity.ok(authService.updateMyProfile(
-            principal.getName(), request.getName(), request.getEmail()));
+    @PutMapping({"/me", "/profile"})
+    public ResponseEntity<AuthResponse> updateMyProfile(@RequestBody UserUpdateRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(authService.updateMyProfile(email, request.getName(), request.getEmail()));
     }
 
     @PostMapping("/logout")

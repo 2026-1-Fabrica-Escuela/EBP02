@@ -1,6 +1,6 @@
 package com.finanzas.api.service;
 
-import com.finanzas.api.dto.request.TransactionRequest;
+import com.finanzas.api.dto.request.TransactionUpdateRequest;
 import com.finanzas.api.dto.response.TransactionResponse;
 import com.finanzas.api.model.*;
 import com.finanzas.api.repository.*;
@@ -60,7 +60,7 @@ class TransactionServiceTest {
         when(userRepository.findByEmail("usuario@test.com")).thenReturn(Optional.of(currentUser));
     }
 
-    // ─── HU-09 C1: obtener transacción por id (formulario precargado) ─────────
+    // ─── HU-09 C1: obtener transacción por id ────────────────────────────────
 
     @Test
     void getById_existingTransaction_returnsResponse() {
@@ -80,7 +80,6 @@ class TransactionServiceTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class,
             () -> transactionService.getById(transactionId));
-
         assertEquals("Transacción no encontrada", ex.getMessage());
     }
 
@@ -88,72 +87,11 @@ class TransactionServiceTest {
     void getById_ownershipViolation_throwsException() {
         User otherUser = new User();
         otherUser.setUserId(UUID.randomUUID());
-
         Transaction t = buildTransaction();
         t.setUser(otherUser);
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
 
         assertThrows(RuntimeException.class, () -> transactionService.getById(transactionId));
-    }
-
-    // ─── HU-09 C2: campos obligatorios vacíos ────────────────────────────────
-
-    @Test
-    void update_missingCategory_throwsException() {
-        Transaction t = buildTransaction();
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
-
-        TransactionRequest req = buildRequest();
-        req.setCategoryId(null);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> transactionService.update(transactionId, req));
-
-        assertEquals("Por favor, completa todos los campos obligatorios", ex.getMessage());
-    }
-
-    @Test
-    void update_missingDate_throwsException() {
-        Transaction t = buildTransaction();
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
-
-        TransactionRequest req = buildRequest();
-        req.setDate(null);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> transactionService.update(transactionId, req));
-
-        assertEquals("Por favor, completa todos los campos obligatorios", ex.getMessage());
-    }
-
-    // ─── HU-09 C3: monto inválido ────────────────────────────────────────────
-
-    @Test
-    void update_zeroAmount_throwsException() {
-        Transaction t = buildTransaction();
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
-
-        TransactionRequest req = buildRequest();
-        req.setAmount(BigDecimal.ZERO);
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> transactionService.update(transactionId, req));
-
-        assertEquals("El monto debe ser un valor numérico mayor a cero", ex.getMessage());
-    }
-
-    @Test
-    void update_negativeAmount_throwsException() {
-        Transaction t = buildTransaction();
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
-
-        TransactionRequest req = buildRequest();
-        req.setAmount(new BigDecimal("-50.00"));
-
-        RuntimeException ex = assertThrows(RuntimeException.class,
-            () -> transactionService.update(transactionId, req));
-
-        assertEquals("El monto debe ser un valor numérico mayor a cero", ex.getMessage());
     }
 
     // ─── HU-09 C4: actualización válida ──────────────────────────────────────
@@ -167,7 +105,7 @@ class TransactionServiceTest {
         when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
-        TransactionRequest req = buildRequest();
+        TransactionUpdateRequest req = buildUpdateRequest();
         req.setAmount(new BigDecimal("250.00"));
         req.setDescription("Descripción actualizada");
 
@@ -176,6 +114,14 @@ class TransactionServiceTest {
         assertNotNull(response);
         assertEquals(new BigDecimal("250.00"), response.getAmount());
         assertEquals("Descripción actualizada", response.getDescription());
+    }
+
+    @Test
+    void update_notFound_throwsException() {
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class,
+            () -> transactionService.update(transactionId, buildUpdateRequest()));
     }
 
     // ─── HU-10 C3: eliminar transacción ──────────────────────────────────────
@@ -195,7 +141,6 @@ class TransactionServiceTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class,
             () -> transactionService.delete(transactionId));
-
         assertEquals("Transacción no encontrada", ex.getMessage());
         verify(transactionRepository, never()).delete(any());
     }
@@ -204,7 +149,6 @@ class TransactionServiceTest {
     void delete_ownershipViolation_throwsException() {
         User otherUser = new User();
         otherUser.setUserId(UUID.randomUUID());
-
         Transaction t = buildTransaction();
         t.setUser(otherUser);
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(t));
@@ -217,7 +161,6 @@ class TransactionServiceTest {
 
     private Transaction buildTransaction() {
         Category category = buildCategory();
-
         Transaction t = new Transaction();
         t.setTransactionId(transactionId);
         t.setUser(currentUser);
@@ -237,13 +180,12 @@ class TransactionServiceTest {
         return category;
     }
 
-    private TransactionRequest buildRequest() {
-        TransactionRequest req = new TransactionRequest();
+    private TransactionUpdateRequest buildUpdateRequest() {
+        TransactionUpdateRequest req = new TransactionUpdateRequest();
         req.setCategoryId(categoryId);
         req.setAmount(new BigDecimal("100.00"));
         req.setDescription("Descripción");
         req.setDate(LocalDate.now());
-        req.setStatus("COMPLETED");
         return req;
     }
 }

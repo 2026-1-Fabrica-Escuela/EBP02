@@ -40,7 +40,7 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setNombre(request.getNombre());
+        user.setNombre(request.getName());
         user.setRole(role);
         user.setStatus("activa");
 

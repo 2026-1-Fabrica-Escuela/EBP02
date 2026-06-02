@@ -1,6 +1,7 @@
 package com.finanzas.api.controller;
 
 import com.finanzas.api.dto.request.TransactionRequest;
+import com.finanzas.api.dto.request.TransactionUpdateRequest;
 import com.finanzas.api.dto.response.TransactionResponse;
 import com.finanzas.api.service.TransactionService;
 import jakarta.validation.Valid;
@@ -45,7 +46,7 @@ public class TransactionController {
 
     @PutMapping("/{id}")
     public ResponseEntity<TransactionResponse> update(@PathVariable UUID id,
-                                                      @Valid @RequestBody TransactionRequest request) {
+                                                      @Valid @RequestBody TransactionUpdateRequest request) {
         return ResponseEntity.ok(transactionService.update(id, request));
     }
 

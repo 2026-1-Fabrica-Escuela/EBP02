@@ -1,6 +1,7 @@
 package com.finanzas.api.controller;
 
 import com.finanzas.api.dto.request.BudgetRequest;
+import com.finanzas.api.dto.request.BudgetUpdateRequest;
 import com.finanzas.api.dto.response.BudgetResponse;
 import com.finanzas.api.service.BudgetService;
 import jakarta.validation.Valid;
@@ -37,7 +38,7 @@ public class BudgetController {
 
     @PutMapping("/{id}")
     public ResponseEntity<BudgetResponse> update(@PathVariable UUID id,
-                                                 @Valid @RequestBody BudgetRequest request) {
+                                                 @Valid @RequestBody BudgetUpdateRequest request) {
         return ResponseEntity.ok(budgetService.update(id, request));
     }
 }

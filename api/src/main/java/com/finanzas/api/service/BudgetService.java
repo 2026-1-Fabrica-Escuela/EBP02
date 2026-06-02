@@ -1,6 +1,7 @@
 package com.finanzas.api.service;
 
 import com.finanzas.api.dto.request.BudgetRequest;
+import com.finanzas.api.dto.request.BudgetUpdateRequest;
 import com.finanzas.api.dto.response.BudgetResponse;
 import com.finanzas.api.model.Budget;
 import com.finanzas.api.model.User;
@@ -10,6 +11,9 @@ import com.finanzas.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import com.finanzas.api.model.Pocket;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -54,39 +58,29 @@ public class BudgetService {
         return toResponse(budgetRepository.save(budget));
     }
 
-    public BudgetResponse update(UUID id, BudgetRequest request) {
+    @Transactional
+    public BudgetResponse update(UUID id, BudgetUpdateRequest request) {
         Budget budget = budgetRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Presupuesto no encontrado"));
         validateOwnership(budget.getUser().getUserId());
 
-        if (request.getTotalAmount() == null) {
-            throw new RuntimeException("Por favor completa todos los campos obligatorios");
-        }
-        if (request.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("El monto del presupuesto debe ser mayor a cero");
-        }
+        List<Pocket> pockets = pocketRepository.findByBudgetBudgetId(id);
 
-        BigDecimal allocated = pocketRepository.sumAllocatedByBudget(id);
-        if (request.getTotalAmount().compareTo(allocated) < 0) {
-            throw new RuntimeException("El nuevo monto es menor al ya asignado a bolsillos");
-        }
-
-        // Si cambia el mes o año verificar que no exista otro presupuesto del usuario para ese periodo
-        boolean monthOrYearChanged = !budget.getMonth().equals(request.getMonth())
-            || !budget.getYear().equals(request.getYear());
-        if (monthOrYearChanged) {
-            boolean conflict = budgetRepository
-                .findByUserUserIdAndMonthAndYear(budget.getUser().getUserId(), request.getMonth(), request.getYear())
-                .filter(b -> !b.getBudgetId().equals(id))
-                .isPresent();
-            if (conflict) {
-                throw new RuntimeException("Ya existe un presupuesto para ese mes y año");
+        // Si hay un solo bolsillo, actualizar su allocatedAmount y currentAmount al nuevo total
+        if (pockets.size() == 1) {
+            Pocket pocket = pockets.get(0);
+            pocket.setAllocatedAmount(request.getTotalAmount());
+            pocket.setCurrentAmount(request.getTotalAmount());
+            pocketRepository.save(pocket);
+        } else if (pockets.size() > 1) {
+            // Varios bolsillos: solo validar que el nuevo total no sea menor a lo ya asignado
+            BigDecimal allocated = pocketRepository.sumAllocatedByBudget(id);
+            if (request.getTotalAmount().compareTo(allocated) < 0) {
+                throw new RuntimeException("El nuevo monto es menor al ya asignado a bolsillos");
             }
         }
 
         budget.setTotalAmount(request.getTotalAmount());
-        budget.setMonth(request.getMonth());
-        budget.setYear(request.getYear());
         return toResponse(budgetRepository.save(budget));
     }
 
