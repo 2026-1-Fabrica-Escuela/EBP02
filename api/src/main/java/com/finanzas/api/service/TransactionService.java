@@ -75,11 +75,25 @@ public class TransactionService {
         return toResponse(transactionRepository.save(transaction));
     }
 
+    public TransactionResponse getById(UUID id) {
+        Transaction transaction = transactionRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
+        validateOwnership(transaction.getUser().getUserId());
+        return toResponse(transaction);
+    }
+
     @Transactional
     public TransactionResponse update(UUID id, TransactionRequest request) {
         Transaction transaction = transactionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
         validateOwnership(transaction.getUser().getUserId());
+
+        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("El monto debe ser un valor numérico mayor a cero");
+        }
+        if (request.getCategoryId() == null || request.getDate() == null || request.getStatus() == null) {
+            throw new RuntimeException("Por favor, completa todos los campos obligatorios");
+        }
 
         Category category = categoryRepository.findById(request.getCategoryId())
             .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
@@ -87,8 +101,8 @@ public class TransactionService {
         transaction.setCategory(category);
         transaction.setAmount(request.getAmount());
         transaction.setDescription(request.getDescription());
+        transaction.setStatus(request.getStatus());
         transaction.setDate(request.getDate());
-
         return toResponse(transactionRepository.save(transaction));
     }
 

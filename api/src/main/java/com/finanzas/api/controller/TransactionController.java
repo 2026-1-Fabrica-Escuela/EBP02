@@ -33,6 +33,11 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getByPeriod(start, end));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<TransactionResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(transactionService.getById(id));
+    }
+
     @PostMapping
     public ResponseEntity<TransactionResponse> create(@Valid @RequestBody TransactionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(transactionService.create(request));
@@ -40,7 +45,7 @@ public class TransactionController {
 
     @PutMapping("/{id}")
     public ResponseEntity<TransactionResponse> update(@PathVariable UUID id,
-                                                       @Valid @RequestBody TransactionRequest request) {
+                                                      @Valid @RequestBody TransactionRequest request) {
         return ResponseEntity.ok(transactionService.update(id, request));
     }
 

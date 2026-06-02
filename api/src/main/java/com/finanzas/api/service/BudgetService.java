@@ -59,12 +59,34 @@ public class BudgetService {
             .orElseThrow(() -> new RuntimeException("Presupuesto no encontrado"));
         validateOwnership(budget.getUser().getUserId());
 
+        if (request.getTotalAmount() == null) {
+            throw new RuntimeException("Por favor completa todos los campos obligatorios");
+        }
+        if (request.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("El monto del presupuesto debe ser mayor a cero");
+        }
+
         BigDecimal allocated = pocketRepository.sumAllocatedByBudget(id);
         if (request.getTotalAmount().compareTo(allocated) < 0) {
             throw new RuntimeException("El nuevo monto es menor al ya asignado a bolsillos");
         }
 
+        // Si cambia el mes o año verificar que no exista otro presupuesto del usuario para ese periodo
+        boolean monthOrYearChanged = !budget.getMonth().equals(request.getMonth())
+            || !budget.getYear().equals(request.getYear());
+        if (monthOrYearChanged) {
+            boolean conflict = budgetRepository
+                .findByUserUserIdAndMonthAndYear(budget.getUser().getUserId(), request.getMonth(), request.getYear())
+                .filter(b -> !b.getBudgetId().equals(id))
+                .isPresent();
+            if (conflict) {
+                throw new RuntimeException("Ya existe un presupuesto para ese mes y año");
+            }
+        }
+
         budget.setTotalAmount(request.getTotalAmount());
+        budget.setMonth(request.getMonth());
+        budget.setYear(request.getYear());
         return toResponse(budgetRepository.save(budget));
     }
 

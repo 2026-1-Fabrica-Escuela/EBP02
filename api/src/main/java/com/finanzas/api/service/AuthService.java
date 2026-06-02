@@ -14,6 +14,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -24,6 +27,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authManager;
     private final com.finanzas.api.repository.LoginLogRepository loginLogRepository;
+    private final EmailService emailService;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -73,7 +77,59 @@ public class AuthService {
     public AuthResponse getCurrentUser(String email) {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-        
+
+        String roleName = user.getRole() != null ? user.getRole().getNombre() : "USER";
+        return new AuthResponse(null, user.getUserId(), user.getNombre(), user.getEmail(), roleName);
+    }
+
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new RuntimeException("No existe una cuenta asociada a este correo electrónico"));
+
+        String token = UUID.randomUUID().toString();
+        user.setResetToken(token);
+        user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
+        userRepository.save(user);
+
+        emailService.sendPasswordResetEmail(email, token);
+    }
+
+    public void resetPassword(String token, String newPassword) {
+        User user = userRepository.findByResetToken(token)
+            .orElseThrow(() -> new RuntimeException("Token de restablecimiento inválido o expirado"));
+
+        if (user.getResetTokenExpiresAt() == null || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token de restablecimiento inválido o expirado");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExpiresAt(null);
+        userRepository.save(user);
+    }
+
+    public AuthResponse updateMyProfile(String currentEmail, String newName, String newEmail) {
+        User user = userRepository.findByEmail(currentEmail)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        if (newName == null || newName.isBlank()) {
+            throw new RuntimeException("Por favor, completa todos los campos obligatorios");
+        }
+        if (newEmail == null || newEmail.isBlank()) {
+            throw new RuntimeException("Por favor, completa todos los campos obligatorios");
+        }
+        if (!newEmail.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new RuntimeException("Ingresa un correo electrónico válido");
+        }
+
+        if (!newEmail.equalsIgnoreCase(currentEmail) && userRepository.existsByEmail(newEmail)) {
+            throw new RuntimeException("El correo electrónico ya está en uso por otra cuenta");
+        }
+
+        user.setNombre(newName);
+        user.setEmail(newEmail);
+        userRepository.save(user);
+
         String roleName = user.getRole() != null ? user.getRole().getNombre() : "USER";
         return new AuthResponse(null, user.getUserId(), user.getNombre(), user.getEmail(), roleName);
     }

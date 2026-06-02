@@ -44,4 +44,10 @@ public class User {
 
     @Column(name = "suspend_reason", columnDefinition = "text")
     private String suspendReason;
+
+    @Column(name = "reset_token", length = 100)
+    private String resetToken;
+
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
 }
