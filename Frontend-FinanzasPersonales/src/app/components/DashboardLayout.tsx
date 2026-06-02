@@ -5,6 +5,7 @@ import {
   History,
   LayoutDashboard,
   Lightbulb,
+  User,
   Users,
   PlusCircle,
   MinusCircle,
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { to: "/dashboard/reports", label: "Reportes", icon: BarChart2 },
   { to: "/dashboard/recommendations", label: "Recomendaciones", icon: Lightbulb },
   { to: "/dashboard/history", label: "Historial", icon: History },
+  { to: "/dashboard/profile", label: "Mi Perfil", icon: User },
   { to: "/dashboard/income", label: "Registrar Ingreso", icon: PlusCircle },
   { to: "/dashboard/expense", label: "Registrar Gasto", icon: MinusCircle },
 ];

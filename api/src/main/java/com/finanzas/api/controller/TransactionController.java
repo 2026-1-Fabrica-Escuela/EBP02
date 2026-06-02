@@ -38,9 +38,15 @@ public class TransactionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(transactionService.create(request));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<TransactionResponse> update(@PathVariable UUID id,
+                                                       @Valid @RequestBody TransactionRequest request) {
+        return ResponseEntity.ok(transactionService.update(id, request));
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<TransactionResponse> updateStatus(@PathVariable UUID id,
-                                                            @RequestParam String status) {
+                                                             @RequestParam String status) {
         return ResponseEntity.ok(transactionService.updateStatus(id, status));
     }
 

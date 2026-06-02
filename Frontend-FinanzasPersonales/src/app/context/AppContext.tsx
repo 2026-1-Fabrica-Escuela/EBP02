@@ -9,6 +9,7 @@ import React, {
 import {
   addTransactionRequest,
   clearStoredAuthToken,
+  deleteTransactionRequest,
   extractMessage,
   createBudgetRequest,
   createPocketRequest,
@@ -24,6 +25,8 @@ import {
   registerRequest,
   deletePocketRequest,
   updateBudgetRequest,
+  updateProfileRequest,
+  updateTransactionRequest,
   saveStoredAuthToken,
   getCategoriesRequest,
   activateUserRequest,
@@ -324,6 +327,101 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return {
         success: false,
         message: toErrorMessage(error, "No fue posible registrar la transacción"),
+      };
+    }
+  }, [user]);
+
+  const updateTransaction = useCallback(async (
+    id: string,
+    data: { amount: number; date: string; description: string; categoryId: string },
+  ): Promise<ActionResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: "Debes iniciar sesión para editar transacciones",
+      };
+    }
+
+    try {
+      const token = getStoredAuthToken();
+      const payload = await updateTransactionRequest(id, data, token);
+      const updated = extractTransactionFromPayload(payload, user.id);
+
+      if (updated) {
+        setTransactions((prev) => sortTransactions(
+          prev.map((tx) => (tx.id === id ? updated : tx)),
+        ));
+      } else {
+        const transactionsPayload = await getTransactionsRequest(token);
+        setTransactions(normalizeTransactionsFromPayload(transactionsPayload, user.id));
+      }
+
+      return {
+        success: true,
+        message: extractMessage(payload, "Transacción actualizada con éxito"),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: toErrorMessage(error, "No fue posible actualizar la transacción"),
+      };
+    }
+  }, [user]);
+
+  const updateProfile = useCallback(async (
+    name: string,
+    email: string,
+  ): Promise<ActionResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: "Debes iniciar sesión para actualizar tu perfil",
+      };
+    }
+
+    try {
+      const token = getStoredAuthToken();
+      const payload = await updateProfileRequest(name, email, token);
+      const updatedUser = extractUserFromPayload(payload);
+
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+
+      return {
+        success: true,
+        message: extractMessage(payload, "Tu información ha sido actualizada con éxito"),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: toErrorMessage(error, "No fue posible actualizar tu perfil"),
+      };
+    }
+  }, [user]);
+
+  const deleteTransaction = useCallback(async (id: string): Promise<ActionResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: "Debes iniciar sesión para eliminar transacciones",
+      };
+    }
+
+    try {
+      const token = getStoredAuthToken();
+      const payload = await deleteTransactionRequest(id, token);
+
+      setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+
+      return {
+        success: true,
+        message: extractMessage(payload, "Transacción eliminada con éxito"),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: toErrorMessage(error, "No fue posible eliminar la transacción"),
       };
     }
   }, [user]);
@@ -699,6 +797,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     requestPasswordReset,
     logout,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    updateProfile,
     suspendUser,
     activateUser,
     updateUserProfile,
@@ -711,6 +812,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     refreshData,
   }), [
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    updateProfile,
     budgets,
     createBudget,
     createPocket,

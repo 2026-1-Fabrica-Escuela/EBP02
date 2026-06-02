@@ -80,7 +80,7 @@ export function LoginPage() {
               error={errors.password}
             />
             <Link to="/forgot-password" className="text-[0.8125rem] text-[#1A237E] hover:underline self-end -mt-2">
-              Recuperar Contraseña
+              ¿Olvidaste tu contraseña?
             </Link>
             <FluentButton type="submit" fullWidth disabled={isSubmitting}>
               <LogIn size={18} /> {isSubmitting ? "Entrando..." : "Entrar"}

@@ -76,6 +76,23 @@ public class TransactionService {
     }
 
     @Transactional
+    public TransactionResponse update(UUID id, TransactionRequest request) {
+        Transaction transaction = transactionRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
+        validateOwnership(transaction.getUser().getUserId());
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+            .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
+
+        transaction.setCategory(category);
+        transaction.setAmount(request.getAmount());
+        transaction.setDescription(request.getDescription());
+        transaction.setDate(request.getDate());
+
+        return toResponse(transactionRepository.save(transaction));
+    }
+
+    @Transactional
     public TransactionResponse updateStatus(UUID id, String status) {
         Transaction transaction = transactionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
@@ -99,6 +116,7 @@ public class TransactionService {
         r.setStatus(t.getStatus());
         r.setDate(t.getDate());
         if (t.getCategory() != null) {
+            r.setCategoryId(t.getCategory().getCategoryId());
             r.setCategoryTitle(t.getCategory().getTitle());
             r.setCategoryType(t.getCategory().getType());
         }

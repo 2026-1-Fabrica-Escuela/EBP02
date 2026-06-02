@@ -21,12 +21,16 @@ export {
   loginRequest,
   logoutRequest,
   registerRequest,
+  resetPasswordRequest,
+  updateProfileRequest,
 } from "./auth";
 
 export {
   addTransactionRequest,
+  deleteTransactionRequest,
   getTransactionsByPeriodRequest,
   getTransactionsRequest,
+  updateTransactionRequest,
 } from "./transactions";
 
 export { getUsersRequest } from "./users";
@@ -60,4 +64,5 @@ export type {
   CategoryResponse,
   CategoryType,
   CreateTransactionPayload,
+  UpdateTransactionPayload,
 } from "./types";

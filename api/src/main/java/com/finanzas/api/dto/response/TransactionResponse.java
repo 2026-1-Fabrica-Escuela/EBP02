@@ -12,6 +12,7 @@ public class TransactionResponse {
     private String description;
     private String status;
     private LocalDate date;
+    private UUID categoryId;
     private String categoryTitle;
     private String categoryType;
     private String pocketTitle;

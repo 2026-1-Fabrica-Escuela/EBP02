@@ -117,6 +117,9 @@ export interface AppState {
   requestPasswordReset: (email: string) => Promise<ActionResult>;
   logout: () => Promise<void>;
   addTransaction: (t: Omit<Transaction, "id" | "userId">) => Promise<ActionResult>;
+  updateTransaction: (id: string, data: { amount: number; date: string; description: string; categoryId: string }) => Promise<ActionResult>;
+  deleteTransaction: (id: string) => Promise<ActionResult>;
+  updateProfile: (name: string, email: string) => Promise<ActionResult>;
   suspendUser: (userId: string, reason: string) => Promise<ActionResult>;
   activateUser: (userId: string) => Promise<ActionResult>;
   updateUserProfile: (userId: string, data: { name: string; email: string }) => Promise<ActionResult>;

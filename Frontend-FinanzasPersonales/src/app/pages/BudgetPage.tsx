@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ListOrdered,
+  Pencil,
   PlusCircle,
   Wallet,
   X,
@@ -86,6 +87,93 @@ const findMonthBudget = (budgets: Budget[], month: number, year: number) =>
 const getBudgetPockets = (pockets: Pocket[], budgetId: string) =>
   pockets.filter((pocket) => pocket.budgetId === budgetId);
 
+function EditBudgetModal({
+  budget,
+  label,
+  onSave,
+  onClose,
+}: {
+  budget: Budget;
+  label: string;
+  onSave: (totalAmount: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState(String(budget.totalAmount));
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+
+    if (!amount.trim()) {
+      e.amount = "Campo obligatorio";
+    } else if (!/^\d+(\.\d+)?$/.test(amount.trim())) {
+      e.amount = "El monto debe ser un valor numérico";
+    } else if (parseFloat(amount) <= 0) {
+      e.amount = "El monto del presupuesto debe ser mayor a cero";
+    }
+
+    if (Object.keys(e).length > 0) {
+      toast.error("Por favor completa todos los campos obligatorios");
+    }
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setIsSubmitting(true);
+    try {
+      await onSave(parseFloat(amount));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#e0e0e0]/50 px-6 py-4">
+          <h3 className="text-[#1a1a2e]">Editar Presupuesto</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#F5F7FA] hover:text-[#1a1a2e]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-5 px-6 py-6">
+          <div className="rounded-[10px] bg-[#F5F7FA] px-4 py-3">
+            <p className="text-[0.75rem] uppercase tracking-wide text-[#6b7280] mb-1">Período</p>
+            <p className="text-[0.9375rem] text-[#1a1a2e] font-medium">{label}</p>
+          </div>
+
+          <FluentInput
+            label="Monto *"
+            type="text"
+            placeholder="Ej: 2500000"
+            value={amount}
+            onChange={(e) => { setAmount(e.target.value); setErrors((prev) => ({ ...prev, amount: "" })); }}
+            error={errors.amount}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[#e0e0e0]/50 px-6 py-4">
+          <FluentButton variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </FluentButton>
+          <FluentButton onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Guardando..." : "Confirmar"}
+          </FluentButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BudgetPage() {
   const { budgets, pockets, categories, createBudget, updateBudget, createPocket } = useApp();
 
@@ -101,6 +189,7 @@ export function BudgetPage() {
   const [duplicateMsg, setDuplicateMsg] = useState(false);
   const [discardMsg, setDiscardMsg] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<{ budget: Budget; pockets: Pocket[]; label: string } | null>(null);
 
   const groupedBudgets = useMemo(() => {
     return [...budgets]
@@ -388,9 +477,19 @@ export function BudgetPage() {
                     <div className="w-2 h-6 bg-[#1A237E] rounded-full" />
                     <h3 className="text-[#1a1a2e]">{group.label}</h3>
                   </div>
-                  <span className="text-[0.75rem] text-[#6b7280] bg-[#F5F7FA] px-2.5 py-0.5 rounded-full">
-                    {group.pockets.length} {group.pockets.length === 1 ? "categoría" : "categorías"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingBudget({ budget: group.budget, pockets: group.pockets, label: group.label })}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#1A237E]/10 hover:text-[#1A237E]"
+                      title="Editar presupuesto"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <span className="text-[0.75rem] text-[#6b7280] bg-[#F5F7FA] px-2.5 py-0.5 rounded-full">
+                      {group.pockets.length} {group.pockets.length === 1 ? "categoría" : "categorías"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -429,6 +528,23 @@ export function BudgetPage() {
             ))
           )}
         </div>
+      )}
+
+      {editingBudget && (
+        <EditBudgetModal
+          budget={editingBudget.budget}
+          label={editingBudget.label}
+          onSave={async (totalAmount) => {
+            const result = await updateBudget(editingBudget.budget.budgetId, { totalAmount });
+            if (result.success) {
+              toast.success("La modificación ha sido exitosa.");
+              setEditingBudget(null);
+            } else {
+              toast.error(result.message);
+            }
+          }}
+          onClose={() => setEditingBudget(null)}
+        />
       )}
     </div>
   );

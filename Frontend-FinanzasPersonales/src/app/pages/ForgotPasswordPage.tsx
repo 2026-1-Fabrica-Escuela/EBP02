@@ -16,7 +16,7 @@ export function ForgotPasswordPage() {
 
   const validate = () => {
     if (!email.trim()) {
-      setError("Campo obligatorio");
+      setError("El correo electrónico es obligatorio");
       return false;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

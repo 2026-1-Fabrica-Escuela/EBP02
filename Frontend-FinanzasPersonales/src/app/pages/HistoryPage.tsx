@@ -6,15 +6,20 @@ import {
   History,
   Info,
   Loader2,
+  Pencil,
   Scale,
   Search,
+  Trash2,
   TrendingDown,
   TrendingUp,
+  X,
   type LucideIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { FluentButton } from "../components/ui/FluentButton";
 import { FluentCard } from "../components/ui/FluentCard";
 import { FluentInput } from "../components/ui/FluentInput";
+import { FluentSelect } from "../components/ui/FluentSelect";
 import { useApp } from "../context/AppContext";
 import { getTransactionsByPeriodRequest, getStoredAuthToken } from "../services/api";
 
@@ -27,6 +32,7 @@ interface TransactionRow {
   date: string;
   description: string;
   category: string;
+  categoryId?: string;
 }
 
 interface ResultState {
@@ -109,12 +115,12 @@ function SummaryCard({
   );
 }
 
-function TransactionRowComponent({ transaction }: { transaction: TransactionRow }) {
+function TransactionRowComponent({ transaction, onEdit, onDelete }: { transaction: TransactionRow; onEdit: (t: TransactionRow) => void; onDelete: (t: TransactionRow) => void }) {
   const isIncome = transaction.type === "ingreso";
 
   return (
     <div className="flex items-center justify-between rounded-[10px] bg-[#F5F7FA] px-3 py-3 transition-colors hover:bg-[#eef0f7]">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3 flex-1">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
             isIncome ? "bg-[#00E676]/13" : "bg-[#FF5252]/10"
@@ -141,26 +147,235 @@ function TransactionRowComponent({ transaction }: { transaction: TransactionRow 
         </div>
       </div>
 
-      <p
-        className={`ml-3 shrink-0 text-[0.9375rem] font-semibold ${
-          isIncome ? "text-[#00C853]" : "text-[#FF5252]"
-        }`}
-      >
-        {isIncome ? "+" : "-"}
-        {formatCurrency(transaction.amount)}
-      </p>
+      <div className="flex items-center gap-1 shrink-0">
+        <p
+          className={`text-[0.9375rem] font-semibold ${
+            isIncome ? "text-[#00C853]" : "text-[#FF5252]"
+          }`}
+        >
+          {isIncome ? "+" : "-"}
+          {formatCurrency(transaction.amount)}
+        </p>
+        <button
+          type="button"
+          onClick={() => onEdit(transaction)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#1A237E]/10 hover:text-[#1A237E]"
+          title="Editar transacción"
+        >
+          <Pencil size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(transaction)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#FF5252]/10 hover:text-[#FF5252]"
+          title="Eliminar transacción"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EditTransactionModal({
+  transaction,
+  categories,
+  onSave,
+  onClose,
+}: {
+  transaction: TransactionRow;
+  categories: { categoryId: string; title: string; type: string }[];
+  onSave: (data: { amount: number; date: string; description: string; categoryId: string }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState(String(transaction.amount));
+  const [date, setDate] = useState(transaction.date);
+  const [description, setDescription] = useState(transaction.description);
+  const [categoryId, setCategoryId] = useState(transaction.categoryId ?? "");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const categoryOptions = React.useMemo(() => {
+    const typeFilter = transaction.type === "ingreso" ? "INCOME" : "EXPENSE";
+    return categories
+      .filter((cat) => cat.type === typeFilter)
+      .map((cat) => ({ value: cat.categoryId, label: cat.title }));
+  }, [categories, transaction.type]);
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+
+    if (!amount.trim()) {
+      e.amount = "Campo obligatorio";
+    } else if (!/^\d+(\.\d+)?$/.test(amount.trim())) {
+      e.amount = "El monto debe ser un valor numérico mayor a cero";
+    } else if (parseFloat(amount) <= 0) {
+      e.amount = "El monto debe ser un valor numérico mayor a cero";
+    }
+
+    if (!date) {
+      e.date = "Campo obligatorio";
+    }
+
+    if (!description.trim()) {
+      e.description = "Campo obligatorio";
+    }
+
+    if (!categoryId) {
+      e.categoryId = "Debes seleccionar una categoría";
+    }
+
+    if (Object.keys(e).length > 0) {
+      toast.error("Por favor, completa todos los campos obligatorios");
+    }
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        amount: parseFloat(amount),
+        date,
+        description: description.trim(),
+        categoryId,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#e0e0e0]/50 px-6 py-4">
+          <h3 className="text-[#1a1a2e]">Editar Transacción</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#F5F7FA] hover:text-[#1a1a2e]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-5 px-6 py-6">
+          <FluentInput
+            label="Monto *"
+            type="text"
+            placeholder="Ej: 1500000"
+            value={amount}
+            onChange={(e) => { setAmount(e.target.value); setErrors((prev) => ({ ...prev, amount: "" })); }}
+            error={errors.amount}
+          />
+          <FluentInput
+            label="Fecha *"
+            type="date"
+            value={date}
+            onChange={(e) => { setDate(e.target.value); setErrors((prev) => ({ ...prev, date: "" })); }}
+            error={errors.date}
+          />
+          <FluentSelect
+            label="Categoría *"
+            value={categoryId}
+            onChange={(v) => { setCategoryId(v); setErrors((prev) => ({ ...prev, categoryId: "" })); }}
+            options={categoryOptions}
+            error={errors.categoryId}
+          />
+          <FluentInput
+            label="Descripción *"
+            placeholder="Ej: Descripción de la transacción"
+            value={description}
+            onChange={(e) => { setDescription(e.target.value); setErrors((prev) => ({ ...prev, description: "" })); }}
+            error={errors.description}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[#e0e0e0]/50 px-6 py-4">
+          <FluentButton variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </FluentButton>
+          <FluentButton onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Guardando..." : "Guardar"}
+          </FluentButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmDialog({
+  transaction,
+  onConfirm,
+  onCancel,
+}: {
+  transaction: TransactionRow;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-[#e0e0e0]/50 px-6 py-4">
+          <h3 className="text-[#1a1a2e]">Eliminar Transacción</h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#F5F7FA] hover:text-[#1a1a2e]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col items-center gap-4 px-6 py-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FF5252]/10">
+            <Trash2 size={28} className="text-[#FF5252]" />
+          </div>
+          <p className="text-[0.9375rem] text-[#1a1a2e]">
+            ¿Estás seguro de que deseas eliminar esta transacción? Esta acción no se puede deshacer
+          </p>
+          <p className="text-[0.8125rem] text-[#6b7280]">
+            {transaction.description} — {formatCurrency(transaction.amount)}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[#e0e0e0]/50 px-6 py-4">
+          <FluentButton variant="outline" onClick={onCancel} disabled={isDeleting}>
+            Cancelar
+          </FluentButton>
+          <FluentButton variant="danger" onClick={handleConfirm} disabled={isDeleting}>
+            {isDeleting ? "Eliminando..." : "Confirmar"}
+          </FluentButton>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function HistoryPage() {
-  const { user } = useApp();
+  const { user, categories, updateTransaction, deleteTransaction } = useApp();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [filterError, setFilterError] = useState<FilterError>(null);
   const [result, setResult] = useState<ResultState | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionRow | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<TransactionRow | null>(null);
 
   const handleVisualize = async () => {
     if (!from || !to) {
@@ -198,7 +413,8 @@ export function HistoryPage() {
           const date = item.date ?? "";
           const description = item.description ?? "Sin descripción";
           const category = item.categoryTitle ?? item.category ?? "Sin categoría";
-          return { id: String(id), type, amount, date, description, category } as TransactionRow;
+          const categoryId = item.categoryId ?? "";
+          return { id: String(id), type, amount, date, description, category, categoryId } as TransactionRow;
         })
         .filter((t) => t.id && t.date);
 
@@ -360,7 +576,7 @@ export function HistoryPage() {
 
               <div className="space-y-2">
                 {result.transactions.map((transaction) => (
-                  <TransactionRowComponent key={transaction.id} transaction={transaction} />
+                  <TransactionRowComponent key={transaction.id} transaction={transaction} onEdit={setEditingTransaction} onDelete={setDeletingTransaction} />
                 ))}
               </div>
             </FluentCard>
@@ -381,6 +597,45 @@ export function HistoryPage() {
             </p>
           </div>
         </FluentCard>
+      )}
+
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          categories={categories}
+          onSave={async (data) => {
+            const resultAction = await updateTransaction(editingTransaction.id, data);
+            if (resultAction.success) {
+              toast.success(resultAction.message);
+              setEditingTransaction(null);
+              if (from && to) {
+                setResult(null);
+                setFrom("");
+                setTo("");
+              }
+            } else {
+              toast.error(resultAction.message);
+            }
+          }}
+          onClose={() => setEditingTransaction(null)}
+        />
+      )}
+
+      {deletingTransaction && (
+        <DeleteConfirmDialog
+          transaction={deletingTransaction}
+          onConfirm={async () => {
+            const resultAction = await deleteTransaction(deletingTransaction.id);
+            if (resultAction.success) {
+              toast.success(resultAction.message);
+              setDeletingTransaction(null);
+            } else {
+              toast.error(resultAction.message);
+              setDeletingTransaction(null);
+            }
+          }}
+          onCancel={() => setDeletingTransaction(null)}
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import type {
   CategoryResponse,
   CategoryType,
   CreateTransactionPayload,
+  UpdateTransactionPayload,
 } from "./types";
 import type {
   CreateBudgetRequest,
@@ -356,10 +357,39 @@ export const mockRegisterRequest = async (
   };
 };
 
-export const mockForgotPasswordRequest = async (): Promise<unknown> => {
+export const mockForgotPasswordRequest = async (email: string): Promise<unknown> => {
   await wait();
+
+  const userExists = mockUsers.some(
+    (entry) => entry.email.toLowerCase() === email.toLowerCase(),
+  );
+  if (!userExists) {
+    throw new ApiError("No existe una cuenta asociada a este correo electrónico", 404);
+  }
+
   return {
-    message: "Solicitud de recuperacion recibida (mock).",
+    message: "Te enviamos un enlace a tu correo para restablecer tu contraseña",
+  };
+};
+
+export const mockResetPasswordRequest = async (
+  token: string,
+  newPassword: string,
+): Promise<unknown> => {
+  await wait();
+
+  if (!token || !token.startsWith("reset-")) {
+    throw new ApiError("El enlace de restablecimiento no es válido o ha expirado", 400);
+  }
+
+  const hasUpperCase = /[A-Z]/.test(newPassword);
+  const hasNumber = /\d/.test(newPassword);
+  if (newPassword.length < 8 || !hasUpperCase || !hasNumber) {
+    throw new ApiError("La contraseña debe tener al menos 8 caracteres, una mayúscula y un número", 400);
+  }
+
+  return {
+    message: "Tu contraseña fue restablecida con éxito",
   };
 };
 
@@ -610,6 +640,81 @@ export const mockAddTransactionRequest = async (
   return {
     message: "Transaccion registrada (mock)",
     transaction: created,
+  };
+};
+
+export const mockUpdateTransactionRequest = async (
+  id: string,
+  payload: UpdateTransactionPayload,
+  token?: string | null,
+): Promise<unknown> => {
+  await wait();
+  const user = resolveSessionUser(token);
+
+  const transaction = mockTransactions.find((tx) => tx.id === id);
+  if (!transaction || transaction.userId !== user.id) {
+    throw new ApiError("Transaccion no encontrada", 404);
+  }
+
+  const category = mockCategories.find((cat) => cat.categoryId === payload.categoryId);
+  if (!category) {
+    throw new ApiError("Categoria no encontrada", 404);
+  }
+
+  const type = category.type === "INCOME" ? "ingreso" : "gasto";
+
+  transaction.amount = payload.amount;
+  transaction.date = payload.date;
+  transaction.description = payload.description;
+  transaction.category = category.title;
+  transaction.type = type;
+
+  return {
+    message: "Transaccion actualizada con exito (mock)",
+    transaction: { ...transaction },
+  };
+};
+
+export const mockDeleteTransactionRequest = async (
+  id: string,
+  token?: string | null,
+): Promise<unknown> => {
+  await wait();
+  const user = resolveSessionUser(token);
+
+  const index = mockTransactions.findIndex((tx) => tx.id === id);
+  if (index === -1 || mockTransactions[index].userId !== user.id) {
+    throw new ApiError("Transaccion no encontrada", 404);
+  }
+
+  mockTransactions = [...mockTransactions.slice(0, index), ...mockTransactions.slice(index + 1)];
+
+  return {
+    message: "Transaccion eliminada con exito (mock)",
+  };
+};
+
+export const mockUpdateProfileRequest = async (
+  name: string,
+  email: string,
+  token?: string | null,
+): Promise<unknown> => {
+  await wait();
+  const user = resolveSessionUser(token);
+
+  const emailTaken = mockUsers.some(
+    (entry) => entry.email.toLowerCase() === email.toLowerCase() && entry.id !== user.id,
+  );
+  if (emailTaken) {
+    throw new ApiError("El correo electronico ya esta registrado", 409);
+  }
+
+  user.name = name.trim();
+  user.email = email.trim().toLowerCase();
+
+  return {
+    message: "Perfil actualizado con exito (mock)",
+    user: toPublicUser(user),
   };
 };
 

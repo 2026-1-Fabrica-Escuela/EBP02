@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { DashboardHome } from "./pages/DashboardHome";
 import { RegisterIncomePage } from "./pages/RegisterIncomePage";
@@ -10,6 +11,7 @@ import { BudgetPage } from "./pages/BudgetPage";
 import { ReportPage } from "./pages/ReportPage";
 import { SavingsRecommendationsPage } from "./pages/SavingsRecommendationsPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { ActivityReportPage } from "./pages/ActivityReportPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminUserEditPage } from "./pages/AdminUserEditPage";
@@ -19,6 +21,7 @@ export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   {
     path: "/dashboard",
     element: <DashboardLayout />,
@@ -30,6 +33,7 @@ export const router = createBrowserRouter([
       { path: "income", element: <RegisterIncomePage /> },
       { path: "expense", element: <RegisterExpensePage /> },
       { path: "history", element: <HistoryPage /> },
+      { path: "profile", element: <ProfilePage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/activity", element: <ActivityReportPage /> },
       { path: "admin/edit/:userId", element: <AdminUserEditPage /> },

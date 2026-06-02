@@ -7,6 +7,8 @@ import {
   mockLoginRequest,
   mockLogoutRequest,
   mockRegisterRequest,
+  mockResetPasswordRequest,
+  mockUpdateProfileRequest,
 } from "./mock-api";
 
 export const loginRequest = (email: string, password: string) => {
@@ -33,7 +35,7 @@ export const registerRequest = (name: string, email: string, password: string) =
 
 export const forgotPasswordRequest = (email: string) => {
   if (USE_MOCK_API) {
-    return mockForgotPasswordRequest();
+    return mockForgotPasswordRequest(email);
   }
 
   return request<unknown>(ENDPOINTS.forgotPassword, {
@@ -64,4 +66,33 @@ export const getLoginLogsRequest = (token?: string | null) => {
   }
 
   return request<unknown>(ENDPOINTS.loginLogs, { method: "GET" }, token);
+};
+
+export const resetPasswordRequest = (
+  token: string,
+  newPassword: string,
+) => {
+  if (USE_MOCK_API) {
+    return mockResetPasswordRequest(token, newPassword);
+  }
+
+  return request<unknown>(ENDPOINTS.resetPassword, {
+    method: "POST",
+    body: JSON.stringify({ token, newPassword }),
+  });
+};
+
+export const updateProfileRequest = (
+  name: string,
+  email: string,
+  token?: string | null,
+) => {
+  if (USE_MOCK_API) {
+    return mockUpdateProfileRequest(name, email, token);
+  }
+
+  return request<unknown>(ENDPOINTS.updateProfile, {
+    method: "PUT",
+    body: JSON.stringify({ name, email }),
+  }, token);
 };

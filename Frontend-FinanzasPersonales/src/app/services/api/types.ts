@@ -9,3 +9,10 @@ export interface CreateTransactionPayload {
   categoryId: string;
   status: "PENDING" | "COMPLETED" | "CANCELLED";
 }
+
+export interface UpdateTransactionPayload {
+  amount: number;
+  date: string;
+  description: string;
+  categoryId: string;
+}
