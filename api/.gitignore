@@ -16,3 +16,5 @@ target/
 *.log
 .DS_Store
 HELP.md
+
+/src/generated/prisma
